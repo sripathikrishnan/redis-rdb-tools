@@ -53,9 +53,6 @@ def parse_rdb(filename) :
             
             key = read_string(f)
             value = read_object(f, data_type)
-            if data_type == 12 :
-                value = to_hex(value)
-            
             print("'%s' : %s" % (key, value))
 
 def read_object(f, enc_type) :
@@ -87,7 +84,7 @@ def read_object(f, enc_type) :
     elif enc_type == REDIS_RDB_TYPE_SET_INTSET :
         val = read_intset(f)
     elif enc_type == REDIS_RDB_TYPE_ZSET_ZIPLIST :
-        val = read_string(f)
+        val = read_ziplist(f)
     else :
         raise Exception('read_object', 'Invalid object type %d' % enc_type)
         

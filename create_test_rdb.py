@@ -20,6 +20,9 @@ def create_test_rdb() :
     intset_16()
     intset_32()
     intset_64()
+    regular_set()
+    sorted_set_as_ziplist()
+    regular_sorted_set()
     
 def clean_database() :
     r.flushdb()
@@ -95,6 +98,22 @@ def intset_64() :
     r.sadd("intset_64", 0x7ffefffefffefffd)
     r.sadd("intset_64", 0x7ffefffefffefffc)
 
+def regular_set() :
+    r.sadd("regular_set", "alpha")
+    r.sadd("regular_set", "beta")
+    r.sadd("regular_set", "gamma")
+    r.sadd("regular_set", "delta")
+    r.sadd("regular_set", "phi")
+    r.sadd("regular_set", "kappa")
+
+def sorted_set_as_ziplist() :
+    r.zadd("sorted_set_as_ziplist", 1, "8b6ba6718a786daefa69438148361901")
+    r.zadd("sorted_set_as_ziplist", 2, "cb7a24bb7528f934b841b34c3a73e0c7")
+    r.zadd("sorted_set_as_ziplist", 3, "523af537946b79c4f8369ed39ba78605")
+    
+def regular_sorted_set() :
+    pass
+    
 def random_string(length, seed) :
     random.seed(seed)
     return ''.join(random.choice(string.ascii_uppercase + string.digits) for x in range(length))
