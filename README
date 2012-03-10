@@ -1,0 +1,28 @@
+# Converts Redis RDB files to JSON
+
+## (Incomplete) Format of RDB
+
+    <RDB> ::= <HEADER> + <DATABASES> + <REDIS_RDB_OPCODE_EOF>
+    <HEADER> ::= "52, 45, 44, 49, 53" + <VERSION>  #The literals are hex codes for REDIS
+    <VERSION> ::= 4 bytes. Read as an Integer
+    <DATABASES> ::= "" | <DATABASE> | <DATABASE> + <DATABASES>
+    <DATABASE> ::=  <REDIS_RDB_OPCODE_SELECTDB> + <DB_NUMBER> + <KEY_VALUE_PAIRS>
+    <REDIS_RDB_OPCODE_SELECTDB> ::= "FE" #254 in decimal
+    <DB_NUMBER> ::= 1 byte
+    # Every database will have at least 1 key=value pair
+    # Expiry is optional
+    <KEY_VALUE_PAIRS> ::= <KEY_VALUE_WITH_EXPIRY> | <KEY_VALUE_WITH_EXPIRY> + <KEY_VALUE_PAIRS>  
+    <KEY_VALUE_WITH_EXPIRY> ::= <EXPIRY_TIME> + <KEY_VALUE> | <KEY_VALUE>
+    <EXPIRY_TIME> ::= <EXPIRY_IN_SECONDS> | <EXPIRY_IN_MS>
+    <EXPIRY_IN_SECONDS> ::= <REDIS_RDB_OPCODE_EXPIRETIME> + 4 Bytes representing unix time in seconds
+    <REDIS_RDB_OPCODE_EXPIRETIME> ::= 
+    <EXPIRY_IN_MS> ::= "FC" + 4 Bytes representing unix time in milliseconds
+    <KEY_VALUE> ::= "00" + <KEY> + <STRING_VALUE> | "01" + <KEY> + <LIST_VALUE> | "02" + <KEY> + <SET_VALUE> |  "03" + <KEY> + <ZSET_VALUE> | "04" + <KEY> + <HASH_VALUE> 
+    <KEY> ::= <STRING_VALUE>
+    <STRING_VALUE> ::= 
+    <LIST_VALUE> ::=
+    <SET_VALUE> ::=
+    <ZSET_VALUE> ::=
+    <HASH_VALUE> ::=
+
+
