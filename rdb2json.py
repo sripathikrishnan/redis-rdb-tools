@@ -46,7 +46,7 @@ def parse_rdb(filename) :
                 data_type = read_unsigned_char(f)
             
             if data_type == REDIS_RDB_OPCODE_SELECTDB :
-                db_number = read_length(f)[0]
+                db_number = read_length(f)
                 continue
             if data_type == REDIS_RDB_OPCODE_EOF :
                 break
@@ -63,19 +63,18 @@ def read_object(f, enc_type) :
     if enc_type == REDIS_RDB_TYPE_STRING :
         val = read_string(f)
     elif enc_type == REDIS_RDB_TYPE_LIST or enc_type == REDIS_RDB_TYPE_SET :
-        length = read_length(f)[0]
+        length = read_length(f)
         val = []
         for count in xrange(0, length) :
             val.append(read_string(f))
     elif enc_type == REDIS_RDB_TYPE_ZSET :
         val = []
-        length = read_length(f)[0]
         for count in xrange(0, length) :
             val.append(read_string(f))
             dbl_length = read_unsigned_char(f)
             f.read(dbl_length)
     elif enc_type == REDIS_RDB_TYPE_HASH :
-        length = read_length(f)[0]
+        length = read_length(f)
         val = {}
         for count in xrange(0, length) :
             key = read_string(f)
@@ -134,7 +133,7 @@ def read_zipmap_next_length(f) :
         return None
 
 def read_string(f) :
-    tup = read_length(f)
+    tup = read_length_with_encoding(f)
     length = tup[0]
     is_encoded = tup[1]
     val = None
@@ -148,8 +147,8 @@ def read_string(f) :
             bytes = bytearray(f.read(4))
             val = bytes[0]|(bytes[1]<<8)|(bytes[2]<<16)|(bytes[3]<<24);
         elif length == REDIS_RDB_ENC_LZF :
-            clen = read_length(f)[0]
-            l = read_length(f)[0]
+            clen = read_length(f)
+            l = read_length(f)
             f.read(clen)
             val = "COMPRESSED"
     else :
@@ -158,6 +157,9 @@ def read_string(f) :
     return val
     
 def read_length(f) :
+    return read_length_with_encoding(f)[0]
+
+def read_length_with_encoding(f) :
     length = 0
     is_encoded = False
     
@@ -198,7 +200,6 @@ def verify_version(version_str) :
     version = int(version_str)
     if version < 1 or version > 3 : 
         raise Exception('verify_version', 'Invalid RDB version number %d' % version)
-
 
 def to_hex(s):
     '''convert string to hex'''
