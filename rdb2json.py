@@ -53,7 +53,7 @@ def parse_rdb(filename) :
             
             key = read_string(f)
             value = read_object(f, data_type)
-            if data_type in (10, 11, 12) :
+            if data_type in (11, 12) :
                 value = to_hex(value)
             
             print("'%s' : %s" % (key, value))
@@ -81,9 +81,10 @@ def read_object(f, enc_type) :
             value = read_string(f)
             val[key] = value
     elif enc_type == REDIS_RDB_TYPE_HASH_ZIPMAP :
-        val = read_zip_map(f)
-    elif (enc_type == REDIS_RDB_TYPE_LIST_ZIPLIST
-            or enc_type == REDIS_RDB_TYPE_SET_INTSET 
+        val = read_zipmap(f)
+    elif enc_type == REDIS_RDB_TYPE_LIST_ZIPLIST :
+        val = read_ziplist(f)
+    elif (enc_type == REDIS_RDB_TYPE_SET_INTSET 
             or enc_type == REDIS_RDB_TYPE_ZSET_ZIPLIST) :
         val = read_string(f)
     else :
@@ -91,12 +92,62 @@ def read_object(f, enc_type) :
         
     return val
 
-def read_zip_map(f) :
+def read_ziplist(f) :
+    entries = []
+    raw_string = read_string(f)
+    if raw_string =='COMPRESSED' :
+        return ["compressed_ziplist"]
+    
+    buff = StringIO.StringIO(raw_string)
+    zlbytes = read_unsigned_int(buff)
+    tail_offset = read_unsigned_int(buff)
+    num_entries = read_unsigned_short(buff)
+    
+    for x in xrange(0, num_entries) :
+        entries.append(read_ziplist_entry(buff))
+    
+    zlist_end = read_unsigned_char(buff)
+    if zlist_end != 255 : 
+        raise Exception('read_ziplist', "Invalid zip list end - %d" % zlist_end)
+    
+    return entries
+
+def read_ziplist_entry(f) :
+    # We don't care about prev_length
+    prev_length = read_unsigned_char(f)
+    if prev_length == 254 :
+        prev_length = read_unsigned_int(f)
+    
+    length = 0
+    value = None
+
+    entry_header = read_unsigned_char(f)
+    if (entry_header >> 6) == 0 :
+        length = entry_header & 0x3F
+        value = f.read(length)
+    elif (entry_header >> 6) == 1 :
+        length = ((entry_header & 0x3F) << 8) | read_unsigned_char(f)
+        value = f.read(length)
+    elif (entry_header >> 6) == 2 :
+        length = read_unsigned_int(f)
+        value = f.read(length)
+    elif (entry_header >> 4) == 12 :
+        value = read_signed_short(f)
+    elif (entry_header >> 4) == 13 :
+        value = read_signed_int(f)
+    elif (entry_header >> 4) == 14 :
+        value = read_signed_long(f)
+    else :
+        raise Exception('read_ziplist_entry', 'Invalid entry_header %d' % entry_header)
+
+    return value
+    
+def read_zipmap(f) :
     entries = {}
     
     raw_string = read_string(f)
     if raw_string == 'COMPRESSED' :
-        return entries
+        return {"compressed_zip_map" : True}
     
     buff = StringIO.StringIO(raw_string)
     num_entries = read_unsigned_char(buff)
@@ -188,10 +239,26 @@ def read_signed_char(f) :
     
 def read_unsigned_char(f) :
     return struct.unpack('B', f.read(1))[0]
+
+def read_signed_short(f) :
+    return struct.unpack('h', f.read(2))[0]
+        
+def read_unsigned_short(f) :
+    return struct.unpack('H', f.read(2))[0]
+
+def read_signed_int(f) :
+    return struct.unpack('i', f.read(4))[0]
     
 def read_unsigned_int(f) :
-    return struct.unpack('i', f.read(4))[0]
+    return struct.unpack('I', f.read(4))[0]
 
+def read_signed_long(f) :
+    return struct.unpack('q', f.read(8))[0]
+    
+def read_unsigned_long(f) :
+    return struct.unpack('Q', f.read(8))[0]
+
+    
 def verify_magic_string(magic_string) :
     if magic_string != 'REDIS' :
         raise Exception('verify_magic_string', 'Invalid File Format')

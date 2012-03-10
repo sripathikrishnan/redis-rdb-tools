@@ -10,10 +10,13 @@ def create_test_rdb() :
     integer_keys()
     uncompressible_string_keys()
     easily_compressible_string_key()
-    zip_map_that_doesnt_compress()
-    zip_map_that_compresses_easily()
-    dictionary()
-        
+    zipmap_that_doesnt_compress()
+    zipmap_that_compresses_easily()
+    #dictionary()
+    ziplist_that_compresses_easily()
+    ziplist_that_doesnt_compress()
+    #linkedlist()
+            
 def clean_database() :
     r.flushdb()
 
@@ -36,12 +39,12 @@ def uncompressible_string_keys() :
 def easily_compressible_string_key() :
     r.set("".join('a' for x in range(0, 200)), "Key that redis should compress easily")
 
-def zip_map_that_compresses_easily() :
+def zipmap_that_compresses_easily() :
     r.hset("zimap_compresses_easily", "a", "aa")
     r.hset("zimap_compresses_easily", "aa", "aaaa")
     r.hset("zimap_compresses_easily", "aaaaa", "aaaaaaaaaaaaaa")
     
-def zip_map_that_doesnt_compress() :
+def zipmap_that_doesnt_compress() :
     r.hset("zimap_doesnt_compress", "MKD1G6", "2")
     r.hset("zimap_doesnt_compress", "YNNXK", "F7TI")
 
@@ -49,6 +52,24 @@ def dictionary() :
     num_entries = 1000
     for x in xrange(0, num_entries) :
         r.hset("force_dictionary", random_string(50, x), random_string(50, x + num_entries))
+
+def ziplist_that_compresses_easily() :
+    r.lpush("ziplist_compresses_easily", "aaaaaa")
+    r.lpush("ziplist_compresses_easily", "aaaaaaaaaaaa")
+    r.lpush("ziplist_compresses_easily", "aaaaaaaaaaaaaaaaaa")
+    r.lpush("ziplist_compresses_easily", "aaaaaaaaaaaaaaaaaaaaaaaa")
+    r.lpush("ziplist_compresses_easily", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+    r.lpush("ziplist_compresses_easily", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+    
+def ziplist_that_doesnt_compress() :
+    r.lpush("ziplist_doesnt_compress", "aj")
+    r.lpush("ziplist_doesnt_compress", "bk")
+    r.lpush("ziplist_doesnt_compress", "cd")
+
+def linkedlist() :
+    num_entries = 1000
+    for x in xrange(0, num_entries) :
+        r.lpush("force_linkedlist", random_string(50, x))
     
 def random_string(length, seed) :
     random.seed(seed)
