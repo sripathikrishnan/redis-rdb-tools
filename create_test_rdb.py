@@ -15,8 +15,12 @@ def create_test_rdb() :
     #dictionary()
     ziplist_that_compresses_easily()
     ziplist_that_doesnt_compress()
+    ziplist_with_integers()
     #linkedlist()
-            
+    intset_16()
+    intset_32()
+    intset_64()
+    
 def clean_database() :
     r.flushdb()
 
@@ -62,15 +66,35 @@ def ziplist_that_compresses_easily() :
     r.lpush("ziplist_compresses_easily", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
     
 def ziplist_that_doesnt_compress() :
-    r.lpush("ziplist_doesnt_compress", "aj")
-    r.lpush("ziplist_doesnt_compress", "bk")
-    r.lpush("ziplist_doesnt_compress", "cd")
+    r.lpush("ziplist_doesnt_compress", "aj2410")
+    r.lpush("ziplist_doesnt_compress", "cc953a17a8e096e76a44169ad3f9ac87c5f8248a403274416179aa9fbd852344")
 
+def ziplist_with_integers() :
+    r.lpush("ziplist_with_integers", 63)
+    r.lpush("ziplist_with_integers", 16380)
+    r.lpush("ziplist_with_integers", 65535)
+    r.lpush("ziplist_with_integers", 0x7fffffffffffffff)
+    
 def linkedlist() :
     num_entries = 1000
     for x in xrange(0, num_entries) :
         r.lpush("force_linkedlist", random_string(50, x))
+
+def intset_16() :
+    r.sadd("intset_16", 0xfffe)
+    r.sadd("intset_16", 0xfffd)
+    r.sadd("intset_16", 0xfffc)
+
+def intset_32() :
+    r.sadd("intset_32", 0xfffefffe)
+    r.sadd("intset_32", 0xfffefffd)
+    r.sadd("intset_32", 0xfffefffc)
     
+def intset_64() :
+    r.sadd("intset_64", 0x7ffefffefffefffe)
+    r.sadd("intset_64", 0x7ffefffefffefffd)
+    r.sadd("intset_64", 0x7ffefffefffefffc)
+
 def random_string(length, seed) :
     random.seed(seed)
     return ''.join(random.choice(string.ascii_uppercase + string.digits) for x in range(length))

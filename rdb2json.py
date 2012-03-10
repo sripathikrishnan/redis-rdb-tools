@@ -53,7 +53,7 @@ def parse_rdb(filename) :
             
             key = read_string(f)
             value = read_object(f, data_type)
-            if data_type in (11, 12) :
+            if data_type == 12 :
                 value = to_hex(value)
             
             print("'%s' : %s" % (key, value))
@@ -84,13 +84,37 @@ def read_object(f, enc_type) :
         val = read_zipmap(f)
     elif enc_type == REDIS_RDB_TYPE_LIST_ZIPLIST :
         val = read_ziplist(f)
-    elif (enc_type == REDIS_RDB_TYPE_SET_INTSET 
-            or enc_type == REDIS_RDB_TYPE_ZSET_ZIPLIST) :
+    elif enc_type == REDIS_RDB_TYPE_SET_INTSET :
+        val = read_intset(f)
+    elif enc_type == REDIS_RDB_TYPE_ZSET_ZIPLIST :
         val = read_string(f)
     else :
         raise Exception('read_object', 'Invalid object type %d' % enc_type)
         
     return val
+
+def read_intset(f) :
+    entries = []
+    raw_string = read_string(f)
+    if raw_string =='COMPRESSED' :
+        return ["compressed_ziplist"]
+    buff = StringIO.StringIO(raw_string)
+    encoding = read_unsigned_int(buff)
+    num_entries = read_unsigned_int(buff)
+    
+    for x in xrange(0, num_entries) :
+        if encoding == 8 :
+            entry = read_unsigned_long(buff)
+        elif encoding == 4 :
+            entry = read_unsigned_int(buff)
+        elif encoding == 2 :
+            entry = read_unsigned_short(buff)
+        else :
+            raise Exception('read_intset', 'Invalid encoding %d' % encoding)
+        
+        entries.append(entry)
+    
+    return entries
 
 def read_ziplist(f) :
     entries = []
