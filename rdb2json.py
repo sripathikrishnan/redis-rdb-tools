@@ -1,4 +1,5 @@
 import struct
+import StringIO
 
 REDIS_RDB_6BITLEN = 0
 REDIS_RDB_14BITLEN = 1
@@ -51,10 +52,11 @@ def parse_rdb(filename) :
                 break
             
             key = read_string(f)
-            print("key = %s" % key)
-            print("data type = %d" % data_type)
             value = read_object(f, data_type)
-            print("value = %s" % value)
+            if data_type in (10, 11, 12) :
+                value = to_hex(value)
+            
+            print("'%s' : %s" % (key, value))
 
 def read_object(f, enc_type) :
     val = None
@@ -79,13 +81,57 @@ def read_object(f, enc_type) :
             key = read_string(f)
             value = read_string(f)
             val[key] = value
-    elif (enc_type == REDIS_RDB_TYPE_HASH_ZIPMAP or enc_type == REDIS_RDB_TYPE_LIST_ZIPLIST
-            or enc_type == REDIS_RDB_TYPE_SET_INTSET or enc_type == REDIS_RDB_TYPE_ZSET_ZIPLIST) :
+    elif enc_type == REDIS_RDB_TYPE_HASH_ZIPMAP :
+        val = read_zip_map(f)
+    elif (enc_type == REDIS_RDB_TYPE_LIST_ZIPLIST
+            or enc_type == REDIS_RDB_TYPE_SET_INTSET 
+            or enc_type == REDIS_RDB_TYPE_ZSET_ZIPLIST) :
         val = read_string(f)
     else :
         raise Exception('read_object', 'Invalid object type %d' % enc_type)
         
     return val
+
+def read_zip_map(f) :
+    entries = {}
+    
+    raw_string = read_string(f)
+    if raw_string == 'COMPRESSED' :
+        return entries
+    
+    buff = StringIO.StringIO(raw_string)
+    num_entries = read_unsigned_char(buff)
+    #print('number of hashmap entries = %d' % num_entries)
+    while True :
+        next_length = read_zipmap_next_length(buff)
+        if next_length is None :
+            break
+        key = buff.read(next_length)
+        next_length = read_zipmap_next_length(buff)
+        if next_length is None :
+            raise Exception('read_zip_map', 'Unexepcted end of zip map')
+        
+        free = read_unsigned_char(buff)
+        value = buff.read(next_length)
+        skip(buff, free)
+        entries[key] = value
+    
+    return entries
+
+def skip(f, free) :
+    if free :
+        f.read(free)
+
+def read_zipmap_next_length(f) :
+    num = read_unsigned_char(f)
+    if num <= 252 :
+        return num
+    elif num == 253 :
+        return read_unsigned_int(f)
+    elif num == 254 :
+        raise Exception('read_zipmap_next_length', 'Unexpected value in length field - %d' % num)
+    else :
+        return None
 
 def read_string(f) :
     tup = read_length(f)
@@ -105,7 +151,7 @@ def read_string(f) :
             clen = read_length(f)[0]
             l = read_length(f)[0]
             f.read(clen)
-            val = "Encoded string of length %d" % clen
+            val = "COMPRESSED"
     else :
         val = f.read(length)
     
@@ -152,6 +198,18 @@ def verify_version(version_str) :
     version = int(version_str)
     if version < 1 or version > 3 : 
         raise Exception('verify_version', 'Invalid RDB version number %d' % version)
+
+
+def to_hex(s):
+    '''convert string to hex'''
+    lst = []
+    for ch in s:
+        hv = hex(ord(ch)).replace('0x', '')
+        if len(hv) == 1:
+            hv = '0'+hv
+        lst.append(hv)
+    
+    return reduce(lambda x,y:x+y, lst)
 
 def main() :
     parse_rdb("dump.rdb")
