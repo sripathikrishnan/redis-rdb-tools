@@ -1,7 +1,7 @@
-# Converts Redis RDB files to JSON
+h1. Converts Redis RDB files to JSON
 
-## (Incomplete) Format of RDB
-
+h2. (Incomplete) Format of RDB
+<pre><code>
     <RDB> ::= <HEADER> + <DATABASES> + <REDIS_RDB_OPCODE_EOF>
     <HEADER> ::= "52, 45, 44, 49, 53" + <VERSION>  #The literals are hex codes for REDIS
     <VERSION> ::= 4 bytes. Read as an Integer
@@ -24,5 +24,4 @@
     <SET_VALUE> ::=
     <ZSET_VALUE> ::=
     <HASH_VALUE> ::=
-
-
+</code></pre>
