@@ -84,14 +84,14 @@ def linkedlist() :
         r.lpush("force_linkedlist", random_string(50, x))
 
 def intset_16() :
-    r.sadd("intset_16", 0xfffe)
-    r.sadd("intset_16", 0xfffd)
-    r.sadd("intset_16", 0xfffc)
+    r.sadd("intset_16", 0x7ffe)
+    r.sadd("intset_16", 0x7ffd)
+    r.sadd("intset_16", 0x7ffc)
 
 def intset_32() :
-    r.sadd("intset_32", 0xfffefffe)
-    r.sadd("intset_32", 0xfffefffd)
-    r.sadd("intset_32", 0xfffefffc)
+    r.sadd("intset_32", 0x7ffefffe)
+    r.sadd("intset_32", 0x7ffefffd)
+    r.sadd("intset_32", 0x7ffefffc)
     
 def intset_64() :
     r.sadd("intset_64", 0x7ffefffefffefffe)
