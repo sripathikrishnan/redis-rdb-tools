@@ -2,7 +2,7 @@ h1. Redis RDB File Format
 
 Redis *.rdb file is a binary representation of the in-memory store. This binary file is sufficient to completely restore Redis' state.
 
-The rdb file format is optimized for fast read and writes. Where possible LZF compression is used to reduce the file size.
+The rdb file format is optimized for fast read and writes. Where possible LZF compression is used to reduce the file size. In general, objects are prefixed with their lengths, so before reading the object you know exactly how much memory to allocate.
 
 Optimizing for fast read/writes means the on-disk format should be as close as possible to the in-memory representation. This is the approach taken by the rdb file. As a consequence, you cannot parse the rdb file without some understanding of Redis' in-memory representation of data structures
 
@@ -70,9 +70,7 @@ Each key value pair has 4 parts -
 
 h4. Key Expiry Timestamp
 
-The key expiry timestamp can be stored with seconds or milliseconds precision.
-
-This section starts with a one byte flag. A value of @FD@ indicates expiry in seconds. A value of @FC@ indicates expiry in millseconds.
+This section starts with a one byte flag. A value of @FD@ indicates expiry is specified in seconds. A value of @FC@ indicates expiry in specified in millseconds.
 
 After this flag, the stream contains a number in a special "length encoding". This number is a unix time stamp in either seconds or milliseconds precision, and represents the expiry of this key.
 
@@ -111,19 +109,89 @@ For more information, read the appropriate encoding section below.
 
 h2. Encodings
 
+h3. Length Encoding
+
+Length encoding is used to store the length of the next object in the stream. Length encoding is a variable byte encoding designed to use as few bytes as possible.
+
+This is how length encoding works :
+# One byte is read from the stream, and the two most significant bits are read.
+# If starting bits are @00@, then the next 6 bits represent the length
+# If starting bits are @01@, then an additional byte is read from the stream. The combined 14 bits represent the length
+# If starting bits are @10@, then the remaining 6 bits are discared. Additional 4 bytes are read from the stream, and those 4 bytes represent the length
+# If starting bits are @11@, then the next object is encoded in a special format. The remaining 6 bits indicate the format. This encoding is generally used to store numbers as strings, or to store encoded strings. See String Encoding
+
+As a result of this encoding - 
+# Numbers upto and including 63 can be stored in 1 byte
+# Numbers upto and including 16383 can be stored in 2 bytes
+# Numbers upto 2^32 -1 can be stored in 4 bytes
+
 h3. String Encoding
 
-h3. Length Encoding
+Redis Strings are binary safe - which means you can store anything in them. They do not have any special end-of-string token. It is best to think of Redis Strings as a byte array.
+
+There are three types of Strings in Redis - 
+# Length prefixed strings
+# An 8, 16 or 32 bit integer
+# A LZF compressed string
+
+h4. Length Prefixed String
+
+Length prefixed strings are quite simple. The length of the string in bytes is first encoded using "Length Encoding". After this, the raw bytes of the string are stored.
+
+h4. Integers as String
+
+First read the section "Length Encoding", specifically the part when the first two bits are @11@. In this case, the remaining 6 bits are read.
+If the value of those 6 bits is - 
+# 0 indicates that an 8 bit integer follows
+# 1 indicates that a 16 bit integer follows
+# 2 indicates that a 32 bit integer follows
+
+h4. Compressed Strings
+
+First read the section "Length Encoding", specifically the part when the first two bits are @11@. In this case, the remaining 6 bits are read.
+If the value of those 6 bits is 4, it indicates that a compressed string follows.
+
+The compressed string is read as follows - 
+# The compressed length @clen@ is read from the stream using "Length Encoding"
+# The uncompressed length is read from the stream using "Length Encoding"
+# The next @clen@ bytes are read from the stream
+# Finally, these bytes are decompressed using LZF algorithm
 
 h3. List Encoding
 
+A redis list is represented as a sequence of strings.
+
+# First, the size of the list @size@ is read from the stream using "Length Encoding"
+# Next, @size@ strings are read from the stream using "String Encoding"
+# The list is then re-constructed using these Strings
+
 h3. Set Encoding
+
+Sets are encoded exactly like lists. 
 
 h3. Sorted Set Encoding
 
+# First, the size of the sorted set @size@ is read from the stream using "Length Encoding"
+# TODO
+
 h3. Hash Encoding
 
+# First, the size of the hash @size@ is read from the stream using "Length Encoding"
+# Next, @ 2 * size @ strings are read from the stream using "String Encoding"
+# Alternate strings are key and values
+# For example, @ 2 us washington india delhi @ represents the map @{"us" => "washington", "india" => "delhi"}@
+
 h3. Zipmap Encoding
+
+First, a String is read from the stream using "String Encoding". This string represents a zipmap.
+
+The structure of a zipmap is as follows - 
+@<zmlen><len>"foo"<len><free>"bar"<len>"hello"<len><free>"world"<zmend>@
+
+# *zmlen* : Is a 1 byte length that holds the size of the zip map. If it is greater than or equal to 254, value is not used. You will have to iterate the entire zip map to find the length.
+# *len* : Is the length of the following string, which can be either a key or a value. This length is stored in either 1 byte or 5 bytes (yes, it differs from "Length Encoding" described above). If the first byte is between 0 and 252, that is the length of the zipmap. If the first byte is 253, then the next 4 bytes read as an unsigned integer represent the length of the zipmap. 254 and 255 are invalid values for this field.
+# *free* : This is always 1 byte, and indicates the number of free bytes _after_ the value. For example, if the value of a key is "America" and its get updated to "USA", 4 free bytes will be available.
+# *zmend* : Always 255. Indicates the end of the zipmap.
 
 h3. Ziplist Encoding
 
