@@ -19,27 +19,28 @@ At a high level, the RDB file has the following structure
   30 30 30 33           # RDB Version Number in big endian. In this case, version = 0003 = 3
   FE 00                 # FE = code that indicates database selector. db number = 00
   
-  # First key-value in DB  
+  /* First key-value in DB */
   FD $encoded-length     # FD indicates "expiry time in seconds". encoded-length is unix time
   $value-type            # 1 byte flag indicating the type of value
   $string-encoded-key    # The key, encoded as a redis string
   $encoded-value         # The value. Encoding depends on $value-type
   
-  # Second key-value, expiry in ms
+  /* Second key-value, expiry in ms */
   FC $encoded-length     # FC indicates "expiry time in ms". encoded-length is unix time
   $value-type            # 1 byte flag indicating the type of value
   $string-encoded-key    # The key, encoded as a redis string
   $encoded-value         # The value. Encoding depends on $value-type
   
-  # Key without expiry
+  /* Key without expiry */
   $value-type
   $string-encoded-key
   $encoded-value
   
-  # ...
+  /* More key value pairs */
   
   FE $dbnum-length-encoded  # Next database starts
-  # key value pairs
+
+  /* key value pairs */
   
   FF                    ## End of RDB file indicator
 </code></pre>
@@ -48,14 +49,14 @@ h3. Magic Number
 
 The file starts off with the magic string "REDIS". This is a quick sanity check
 to know we are dealing with a redis rdb file.
-@52 45 44 49 53 - REDIS@
+@52 45 44 49 53  # "REDIS"@
 
 h3. RDB Version Number
 
 The next 4 bytes are read as a 32 bit integer in big endian This integer represents 
 the version number of the RDB file. Programs parsing should fail-fast if it does 
 not understand a particular version of the RDB file.
-@00 00 00 03 - 3@
+@00 00 00 03 # Version = 3@
 
 h3. Database Selector
 
@@ -69,20 +70,77 @@ h3. Key Value Pairs
 
 After the database selector, the file contains a sequence of key value pairs.
 
-Each key value pair contains the following - 
-# One byte flag indicating the value type. For example hash, set, sorted set, string etc.
-## 0 indicates value is a string
-## 1 indicates value is a list
-## 2 indicates value is a set
-## 3 indicates value is a sorted set
-## 4 indicates value is a hash
-## 9 indicates value is a zipmap. A zipmap is a hashmap encoded as a string to save space.
-## 10 indicates value is a ziplist. A ziplist is a list encoded as a string to save space
-## 11 indicates value is a intset. An intset is a binary tree of 16, 32 or 64 bit ints, encoded as a string.
-## 12 indicates value is a sorted set in ziplist format
-# An expiry timestamp. This is optional; keys without this section do not expire
-## The special 
-# A length-prefixed string representing the key
-# A section encoding the value. The encoding depends on the value type
+Each key value pair has 4 parts -
+# Key Expiry Timestamp. This is optional
+# One byte flag indicating the value type
+# The key, encoded as a Redis String. See "Redis String Encoding"
+# The value, encoded according to the value type. See "Redis Value Encoding"
 
+h4. Key Expiry Timestamp
+The key expiry timestamp can be stored with seconds or milliseconds precision.
+
+This section starts with a one byte flag. A value of @FD@ indicates expiry in seconds.
+A value of @FC@ indicates expiry in millseconds.
+
+After this flag, the stream contains a number in a special "length encoding".
+This number is a unix time stamp in either seconds or milliseconds precision, 
+and represents the expiry of this key.
+
+See the section "Redis Length Encoding" on how this number is encoded.
+
+During the import process, keys that have expired must be discarded.
+
+h4. Value Type
+
+A one byte flag indicates encoding used to save the Value.
+# 0 =  "String Encoding"
+# 1 =  "List Encoding"
+# 2 =  "Set Encoding"
+# 3 =  "Sorted Set Encoding"
+# 4 =  "Hash Encoding"
+# 9 =  "Zipmap Encoding"
+# 10 = "Ziplist Encoding"
+# 11 = "Intset Encoding"
+# 12 = "Sorted Set in Ziplist Encoding"
+
+h4. Key 
+
+The key is simply encoded as a Redis string. See the section "String Encoding"
+to learn how the key is encoded.
+
+h4. Value
+
+The encoding of the value depends on the value type flag.
+
+When value type = 0, the value is a simple string.
+
+When value type is one of 9, 10, 11 or 12, the value is wrapped in a string.
+After reading the string, it must be parsed further.
+
+When value type is one of 1, 2, 3 or 4, the value is a sequence of strings.
+This sequence of strings is used to construct a list, set, sorted set or hashmap.
+
+For more information, read the appropriate encoding section below.
+
+h2. Encodings
+
+h3. String Encoding
+
+h3. Length Encoding
+
+h3. List Encoding
+
+h3. Set Encoding
+
+h3. Sorted Set Encoding
+
+h3. Hash Encoding
+
+h3. Zipmap Encoding
+
+h3. Ziplist Encoding
+
+h3. Intset Encoding
+
+h3. Sorted Set as Ziplist Encoding
 
