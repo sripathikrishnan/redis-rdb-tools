@@ -12,25 +12,27 @@ At a high level, the RDB file has the following structure
 <pre><code>
 52 45 44 49 53              # Magic String "REDIS"
 30 30 30 33                 # RDB Version Number in big endian. In this case, version = 0003 = 3
+----------------------------
 FE 00                       # FE = code that indicates database selector. db number = 00
-  
-/* First key-value in DB */
-FD $encoded-length          # FD indicates "expiry time in seconds". encoded-length is unix time
+----------------------------
+FD $length-encoding         # FD indicates "expiry time in seconds". After that, we read the expiry time using length encoding
 $value-type                 # 1 byte flag indicating the type of value
 $string-encoded-key         # The key, encoded as a redis string
 $encoded-value              # The value. Encoding depends on $value-type
-/* Second key-value, expiry in ms */
-FC $encoded-length          # FC indicates "expiry time in ms". encoded-length is unix time
+----------------------------
+FC $length-encoding         # FC indicates "expiry time in ms". After that, we read the expiry time using length encoding
 $value-type                 # 1 byte flag indicating the type of value
 $string-encoded-key         # The key, encoded as a redis string
 $encoded-value              # The value. Encoding depends on $value-type
-/* Key without expiry */
-$value-type
+----------------------------
+$value-type                 # This key value pair doesn't have an expiry
 $string-encoded-key
 $encoded-value
-...
-FE $dbnum-length-encoded    # Next database starts
-...
+----------------------------
+FE $dbnum-length-encoded    # Next database starts. It also indicates the end of previous database
+----------------------------
+...                         # Key value pairs for this database, additonal database
+                            
 FF                          ## End of RDB file indicator
 </code></pre>
 
