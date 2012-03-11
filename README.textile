@@ -1,27 +1,88 @@
-h1. Converts Redis RDB files to JSON
+h1. Redis RDB File Format
 
-h2. (Incomplete) Format of RDB
+Redis *.rdb file is a binary representation of the in-memory store. This binary
+file is sufficient to completely restore Redis' state.
+
+The rdb file format is optimized for fast read and writes. Where possible 
+LZF compression is used to reduce the file size.
+
+Optimizing for fast read/writes means the on-disk format should be as close as
+possible to the in-memory representation. This is the approach taken by the
+rdb file. As a consequence, you cannot parse the rdb file without some understanding
+of Redis' in-memory representation of data structures
+
+h2. High Level Layout of the RDB file
+
+At a high level, the RDB file has the following structure
 <pre><code>
-    <RDB> ::= <HEADER> + <DATABASES> + <REDIS_RDB_OPCODE_EOF>
-    <HEADER> ::= "52, 45, 44, 49, 53" + <VERSION>  #The literals are hex codes for REDIS
-    <VERSION> ::= 4 bytes. Read as an Integer
-    <DATABASES> ::= "" | <DATABASE> | <DATABASE> + <DATABASES>
-    <DATABASE> ::=  <REDIS_RDB_OPCODE_SELECTDB> + <DB_NUMBER> + <KEY_VALUE_PAIRS>
-    <REDIS_RDB_OPCODE_SELECTDB> ::= "FE" #254 in decimal
-    <DB_NUMBER> ::= 1 byte
-    # Every database will have at least 1 key=value pair
-    # Expiry is optional
-    <KEY_VALUE_PAIRS> ::= <KEY_VALUE_WITH_EXPIRY> | <KEY_VALUE_WITH_EXPIRY> + <KEY_VALUE_PAIRS>  
-    <KEY_VALUE_WITH_EXPIRY> ::= <EXPIRY_TIME> + <KEY_VALUE> | <KEY_VALUE>
-    <EXPIRY_TIME> ::= <EXPIRY_IN_SECONDS> | <EXPIRY_IN_MS>
-    <EXPIRY_IN_SECONDS> ::= <REDIS_RDB_OPCODE_EXPIRETIME> + 4 Bytes representing unix time in seconds
-    <REDIS_RDB_OPCODE_EXPIRETIME> ::= 
-    <EXPIRY_IN_MS> ::= "FC" + 4 Bytes representing unix time in milliseconds
-    <KEY_VALUE> ::= "00" + <KEY> + <STRING_VALUE> | "01" + <KEY> + <LIST_VALUE> | "02" + <KEY> + <SET_VALUE> |  "03" + <KEY> + <ZSET_VALUE> | "04" + <KEY> + <HASH_VALUE> 
-    <KEY> ::= <STRING_VALUE>
-    <STRING_VALUE> ::= 
-    <LIST_VALUE> ::=
-    <SET_VALUE> ::=
-    <ZSET_VALUE> ::=
-    <HASH_VALUE> ::=
+  52 45 44 49 53        # REDIS
+  30 30 30 33           # RDB Version Number in big endian. In this case, version = 0003 = 3
+  FE 00                 # FE = code that indicates database selector. db number = 00
+  
+  # First key-value in DB  
+  FD $encoded-length     # FD indicates "expiry time in seconds". encoded-length is unix time
+  $value-type            # 1 byte flag indicating the type of value
+  $string-encoded-key    # The key, encoded as a redis string
+  $encoded-value         # The value. Encoding depends on $value-type
+  
+  # Second key-value, expiry in ms
+  FC $encoded-length     # FC indicates "expiry time in ms". encoded-length is unix time
+  $value-type            # 1 byte flag indicating the type of value
+  $string-encoded-key    # The key, encoded as a redis string
+  $encoded-value         # The value. Encoding depends on $value-type
+  
+  # Key without expiry
+  $value-type
+  $string-encoded-key
+  $encoded-value
+  
+  # ...
+  
+  FE $dbnum-length-encoded  # Next database starts
+  # key value pairs
+  
+  FF                    ## End of RDB file indicator
 </code></pre>
+
+h3. Magic Number
+
+The file starts off with the magic string "REDIS". This is a quick sanity check
+to know we are dealing with a redis rdb file.
+@52 45 44 49 53 - REDIS@
+
+h3. RDB Version Number
+
+The next 4 bytes are read as a 32 bit integer in big endian This integer represents 
+the version number of the RDB file. Programs parsing should fail-fast if it does 
+not understand a particular version of the RDB file.
+@00 00 00 03 - 3@
+
+h3. Database Selector
+
+A Redis instance can have multiple databases.
+
+A single byte @0xFE@ flags the start of the database selector. After this byte, a
+variable length field indicates the database number. See the section "Reading Length"
+to understand how to read this database number.
+
+h3. Key Value Pairs
+
+After the database selector, the file contains a sequence of key value pairs.
+
+Each key value pair contains the following - 
+# One byte flag indicating the value type. For example hash, set, sorted set, string etc.
+## 0 indicates value is a string
+## 1 indicates value is a list
+## 2 indicates value is a set
+## 3 indicates value is a sorted set
+## 4 indicates value is a hash
+## 9 indicates value is a zipmap. A zipmap is a hashmap encoded as a string to save space.
+## 10 indicates value is a ziplist. A ziplist is a list encoded as a string to save space
+## 11 indicates value is a intset. An intset is a binary tree of 16, 32 or 64 bit ints, encoded as a string.
+## 12 indicates value is a sorted set in ziplist format
+# An expiry timestamp. This is optional; keys without this section do not expire
+## The special 
+# A length-prefixed string representing the key
+# A section encoding the value. The encoding depends on the value type
+
+
