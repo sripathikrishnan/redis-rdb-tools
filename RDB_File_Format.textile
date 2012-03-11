@@ -10,7 +10,7 @@ h2. High Level Layout of the RDB file
 
 At a high level, the RDB file has the following structure
 <pre><code>
-                            # RDB is a binary format. There are no new lines or spaces in the file.
+----------------------------# RDB is a binary format. There are no new lines or spaces in the file.
 52 45 44 49 53              # Magic String "REDIS"
 30 30 30 33                 # RDB Version Number in big endian. In this case, version = 0003 = 3
 ----------------------------
