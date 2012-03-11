@@ -1,70 +1,62 @@
 h1. Redis RDB File Format
 
-Redis *.rdb file is a binary representation of the in-memory store. This binary
-file is sufficient to completely restore Redis' state.
+Redis *.rdb file is a binary representation of the in-memory store. This binary file is sufficient to completely restore Redis' state.
 
-The rdb file format is optimized for fast read and writes. Where possible 
-LZF compression is used to reduce the file size.
+The rdb file format is optimized for fast read and writes. Where possible LZF compression is used to reduce the file size.
 
-Optimizing for fast read/writes means the on-disk format should be as close as
-possible to the in-memory representation. This is the approach taken by the
-rdb file. As a consequence, you cannot parse the rdb file without some understanding
-of Redis' in-memory representation of data structures
+Optimizing for fast read/writes means the on-disk format should be as close as possible to the in-memory representation. This is the approach taken by the rdb file. As a consequence, you cannot parse the rdb file without some understanding of Redis' in-memory representation of data structures
 
 h2. High Level Layout of the RDB file
 
 At a high level, the RDB file has the following structure
 <pre><code>
-  52 45 44 49 53        # REDIS
-  30 30 30 33           # RDB Version Number in big endian. In this case, version = 0003 = 3
-  FE 00                 # FE = code that indicates database selector. db number = 00
+52 45 44 49 53              # REDIS
+30 30 30 33                 # RDB Version Number in big endian. In this case, version = 0003 = 3
+FE 00                       # FE = code that indicates database selector. db number = 00
   
-  /* First key-value in DB */
-  FD $encoded-length     # FD indicates "expiry time in seconds". encoded-length is unix time
-  $value-type            # 1 byte flag indicating the type of value
-  $string-encoded-key    # The key, encoded as a redis string
-  $encoded-value         # The value. Encoding depends on $value-type
+/* First key-value in DB */
+FD $encoded-length          # FD indicates "expiry time in seconds". encoded-length is unix time
+$value-type                 # 1 byte flag indicating the type of value
+$string-encoded-key         # The key, encoded as a redis string
+$encoded-value              # The value. Encoding depends on $value-type
   
-  /* Second key-value, expiry in ms */
-  FC $encoded-length     # FC indicates "expiry time in ms". encoded-length is unix time
-  $value-type            # 1 byte flag indicating the type of value
-  $string-encoded-key    # The key, encoded as a redis string
-  $encoded-value         # The value. Encoding depends on $value-type
+/* Second key-value, expiry in ms */
+FC $encoded-length          # FC indicates "expiry time in ms". encoded-length is unix time
+$value-type                 # 1 byte flag indicating the type of value
+$string-encoded-key         # The key, encoded as a redis string
+$encoded-value              # The value. Encoding depends on $value-type
   
-  /* Key without expiry */
-  $value-type
-  $string-encoded-key
-  $encoded-value
+/* Key without expiry */
+$value-type
+$string-encoded-key
+$encoded-value
   
-  /* More key value pairs */
-  
-  FE $dbnum-length-encoded  # Next database starts
+/* More key value pairs */
 
-  /* key value pairs */
-  
-  FF                    ## End of RDB file indicator
+FE $dbnum-length-encoded    # Next database starts
+
+/* key value pairs */
+
+FF                          ## End of RDB file indicator
 </code></pre>
 
 h3. Magic Number
 
-The file starts off with the magic string "REDIS". This is a quick sanity check
-to know we are dealing with a redis rdb file.
+The file starts off with the magic string "REDIS". This is a quick sanity check to know we are dealing with a redis rdb file.
+
 @52 45 44 49 53  # "REDIS"@
 
 h3. RDB Version Number
 
-The next 4 bytes are read as a 32 bit integer in big endian This integer represents 
-the version number of the RDB file. Programs parsing should fail-fast if it does 
-not understand a particular version of the RDB file.
+The next 4 bytes are read as a 32 bit integer in big endian This integer represents the version number of the RDB file. Programs parsing should fail-fast if it does not understand a particular version of the RDB file.
+
 @00 00 00 03 # Version = 3@
 
 h3. Database Selector
 
 A Redis instance can have multiple databases.
 
-A single byte @0xFE@ flags the start of the database selector. After this byte, a
-variable length field indicates the database number. See the section "Reading Length"
-to understand how to read this database number.
+A single byte @0xFE@ flags the start of the database selector. After this byte, a variable length field indicates the database number. See the section "Reading Length" to understand how to read this database number.
 
 h3. Key Value Pairs
 
@@ -77,14 +69,12 @@ Each key value pair has 4 parts -
 # The value, encoded according to the value type. See "Redis Value Encoding"
 
 h4. Key Expiry Timestamp
+
 The key expiry timestamp can be stored with seconds or milliseconds precision.
 
-This section starts with a one byte flag. A value of @FD@ indicates expiry in seconds.
-A value of @FC@ indicates expiry in millseconds.
+This section starts with a one byte flag. A value of @FD@ indicates expiry in seconds. A value of @FC@ indicates expiry in millseconds.
 
-After this flag, the stream contains a number in a special "length encoding".
-This number is a unix time stamp in either seconds or milliseconds precision, 
-and represents the expiry of this key.
+After this flag, the stream contains a number in a special "length encoding". This number is a unix time stamp in either seconds or milliseconds precision, and represents the expiry of this key.
 
 See the section "Redis Length Encoding" on how this number is encoded.
 
@@ -105,8 +95,7 @@ A one byte flag indicates encoding used to save the Value.
 
 h4. Key 
 
-The key is simply encoded as a Redis string. See the section "String Encoding"
-to learn how the key is encoded.
+The key is simply encoded as a Redis string. See the section "String Encoding" to learn how the key is encoded.
 
 h4. Value
 
@@ -114,11 +103,9 @@ The encoding of the value depends on the value type flag.
 
 When value type = 0, the value is a simple string.
 
-When value type is one of 9, 10, 11 or 12, the value is wrapped in a string.
-After reading the string, it must be parsed further.
+When value type is one of 9, 10, 11 or 12, the value is wrapped in a string. After reading the string, it must be parsed further.
 
-When value type is one of 1, 2, 3 or 4, the value is a sequence of strings.
-This sequence of strings is used to construct a list, set, sorted set or hashmap.
+When value type is one of 1, 2, 3 or 4, the value is a sequence of strings. This sequence of strings is used to construct a list, set, sorted set or hashmap.
 
 For more information, read the appropriate encoding section below.
 
