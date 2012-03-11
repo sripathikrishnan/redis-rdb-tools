@@ -296,7 +296,14 @@ Within this string, the Intset has a very simple layout :
 # The first 4 bytes @04 00 00 00@ is the encoding. Since this evaluates to 4, we know we are dealing with 32 bit integers
 # The next 4 bytes @03 00 00 00@ is the length of contents. So, we know we are dealing with 3 integers, each 4 byte long
 # From now on, we read in groups of 4 bytes, and convert it into a unsigned integer
-# Thus, our intset looks like - @0x0000FFFC, 0x0000FFFD, 0x0000FFFE@. Notice that the integers were in little endian format i.e. least signinficant bit came first.
+# Thus, our intset looks like - @0x0000FFFC, 0x0000FFFD, 0x0000FFFE@. Notice that the integers are in little endian format i.e. least signinficant bit came first.
 
 h3. Sorted Set as Ziplist Encoding
+
+A sorted list in ziplist encoding is stored just like the Ziplist described above. Each element in the sorted set is followed by its score in the ziplist.
+
+*Example*
+['Manchester City', 1, 'Manchester United', 2, 'Totenham', 3]
+
+As you see, the scores follow each element.
 
