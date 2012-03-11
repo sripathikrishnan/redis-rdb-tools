@@ -10,7 +10,7 @@ h2. High Level Layout of the RDB file
 
 At a high level, the RDB file has the following structure
 <pre><code>
-52 45 44 49 53              # REDIS
+52 45 44 49 53              # Magic String "REDIS"
 30 30 30 33                 # RDB Version Number in big endian. In this case, version = 0003 = 3
 FE 00                       # FE = code that indicates database selector. db number = 00
   
@@ -19,24 +19,18 @@ FD $encoded-length          # FD indicates "expiry time in seconds". encoded-len
 $value-type                 # 1 byte flag indicating the type of value
 $string-encoded-key         # The key, encoded as a redis string
 $encoded-value              # The value. Encoding depends on $value-type
-  
 /* Second key-value, expiry in ms */
 FC $encoded-length          # FC indicates "expiry time in ms". encoded-length is unix time
 $value-type                 # 1 byte flag indicating the type of value
 $string-encoded-key         # The key, encoded as a redis string
 $encoded-value              # The value. Encoding depends on $value-type
-  
 /* Key without expiry */
 $value-type
 $string-encoded-key
 $encoded-value
-  
-/* More key value pairs */
-
+...
 FE $dbnum-length-encoded    # Next database starts
-
-/* key value pairs */
-
+...
 FF                          ## End of RDB file indicator
 </code></pre>
 
@@ -56,7 +50,7 @@ h3. Database Selector
 
 A Redis instance can have multiple databases.
 
-A single byte @0xFE@ flags the start of the database selector. After this byte, a variable length field indicates the database number. See the section "Reading Length" to understand how to read this database number.
+A single byte @0xFE@ flags the start of the database selector. After this byte, a variable length field indicates the database number. See the section "Length Encoding" to understand how to read this database number.
 
 h3. Key Value Pairs
 
@@ -99,13 +93,9 @@ h4. Value
 
 The encoding of the value depends on the value type flag.
 
-When value type = 0, the value is a simple string.
-
-When value type is one of 9, 10, 11 or 12, the value is wrapped in a string. After reading the string, it must be parsed further.
-
-When value type is one of 1, 2, 3 or 4, the value is a sequence of strings. This sequence of strings is used to construct a list, set, sorted set or hashmap.
-
-For more information, read the appropriate encoding section below.
+* When value type = 0, the value is a simple string.
+* When value type is one of 9, 10, 11 or 12, the value is wrapped in a string. After reading the string, it must be parsed further.
+* When value type is one of 1, 2, 3 or 4, the value is a sequence of strings. This sequence of strings is used to construct a list, set, sorted set or hashmap.
 
 h2. Encodings
 
@@ -125,7 +115,7 @@ As a result of this encoding -
 # Numbers upto and including 16383 can be stored in 2 bytes
 # Numbers upto 2^32 -1 can be stored in 4 bytes
 
-h3. String Encoding
+h3. Type 0 : String Encoding
 
 Redis Strings are binary safe - which means you can store anything in them. They do not have any special end-of-string token. It is best to think of Redis Strings as a byte array.
 
@@ -157,7 +147,7 @@ The compressed string is read as follows -
 # The next @clen@ bytes are read from the stream
 # Finally, these bytes are decompressed using LZF algorithm
 
-h3. List Encoding
+h3. Type 1 : List Encoding
 
 A redis list is represented as a sequence of strings.
 
@@ -165,23 +155,23 @@ A redis list is represented as a sequence of strings.
 # Next, @size@ strings are read from the stream using "String Encoding"
 # The list is then re-constructed using these Strings
 
-h3. Set Encoding
+h3. Type 2 : Set Encoding
 
 Sets are encoded exactly like lists. 
 
-h3. Sorted Set Encoding
+h3. Type 3 : Sorted Set Encoding
 
 # First, the size of the sorted set @size@ is read from the stream using "Length Encoding"
 # TODO
 
-h3. Hash Encoding
+h3. Type 4 : Hash Encoding
 
 # First, the size of the hash @size@ is read from the stream using "Length Encoding"
 # Next, @ 2 * size @ strings are read from the stream using "String Encoding"
 # Alternate strings are key and values
 # For example, @ 2 us washington india delhi @ represents the map @{"us" => "washington", "india" => "delhi"}@
 
-h3. Zipmap Encoding
+h3. Type 9 : Zipmap Encoding
 
 A Zipmap is a hashmap that has been serialized to a string. In essence, the key value pairs are stored sequentially. Looking up a key in this structure is O(N). This structure is used instead of a dictionary when the number of key value pairs are small.
 
@@ -215,7 +205,7 @@ The structure of a zipmap within this string is as follows -
 # Finally, we encounter @FF@, which indicates the end of this zip map
 # Thus, this zip map represents the hash @{"MKD1G6" => "2", "YNNXK" => "F7TI"}@
 
-h3. Ziplist Encoding
+h3. Type 10 : Ziplist Encoding
 
 A Ziplist is a list that has been serialized to a string. In essence, the elements of the list are stored sequentially along with flags and offsets to allow efficient traversal of the list in both directions.
 
@@ -271,7 +261,7 @@ The various encodings of this flag are shown below :
 # Finally, we encounter @ff@, which tells us we have consumed all elements in this ziplist.
 # Thus, this ziplist stores the values @[0x7fffffffffffffff, 65535, 16380, 63]
 
-h3. Intset Encoding
+h3. Type 11 : Intset Encoding
 
 An Intset is a binary search tree of integers. The binary tree is implemented in an array of integers. An intset is used when all the elements of the set are integers. An Intset has support for upto 64 bit integers. As an optimization, if the integers can be represented in fewer bytes, the array of integers will be constructed from 16 bit or 32 bit integers. When a new element is inserted, the implementation takes care to upgrade if necessary.
 
@@ -298,7 +288,7 @@ Within this string, the Intset has a very simple layout :
 # From now on, we read in groups of 4 bytes, and convert it into a unsigned integer
 # Thus, our intset looks like - @0x0000FFFC, 0x0000FFFD, 0x0000FFFE@. Notice that the integers are in little endian format i.e. least signinficant bit came first.
 
-h3. Sorted Set as Ziplist Encoding
+h3. Type 12 : Sorted Set as Ziplist Encoding
 
 A sorted list in ziplist encoding is stored just like the Ziplist described above. Each element in the sorted set is followed by its score in the ziplist.
 
