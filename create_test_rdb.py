@@ -112,7 +112,9 @@ def sorted_set_as_ziplist() :
     r.zadd("sorted_set_as_ziplist", 3, "523af537946b79c4f8369ed39ba78605")
     
 def regular_sorted_set() :
-    pass
+    num_entries = 500
+    for x in xrange(0, num_entries) :
+        r.zadd("force_sorted_set", float(x) / 100, random_string(50, x))
     
 def random_string(length, seed) :
     random.seed(seed)

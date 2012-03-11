@@ -66,10 +66,11 @@ def read_object(f, enc_type) :
             val.append(read_string(f))
     elif enc_type == REDIS_RDB_TYPE_ZSET :
         val = []
+        length = read_length(f)
         for count in xrange(0, length) :
             val.append(read_string(f))
             dbl_length = read_unsigned_char(f)
-            f.read(dbl_length)
+            val.append(f.read(dbl_length))
     elif enc_type == REDIS_RDB_TYPE_HASH :
         length = read_length(f)
         val = {}

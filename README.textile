@@ -183,9 +183,11 @@ h3. Hash Encoding
 
 h3. Zipmap Encoding
 
-First, a String is read from the stream using "String Encoding". This string represents a zipmap.
+A Zipmap is a hashmap that has been serialized to a string. In essence, the key value pairs are stored sequentially. Looking up a key in this structure is O(N). This structure is used instead of a dictionary when the number of key value pairs are small.
 
-The structure of a zipmap is as follows - 
+To parse a zipmap, first a string is read from the stream using "String Encoding". This string is the envelope of the zipmap. The contents of this string represent the zipmap.
+
+The structure of a zipmap within this string is as follows - 
 @<zmlen><len>"foo"<len><free>"bar"<len>"hello"<len><free>"world"<zmend>@
 
 # *zmlen* : Is a 1 byte length that holds the size of the zip map. If it is greater than or equal to 254, value is not used. You will have to iterate the entire zip map to find the length.
@@ -193,9 +195,85 @@ The structure of a zipmap is as follows -
 # *free* : This is always 1 byte, and indicates the number of free bytes _after_ the value. For example, if the value of a key is "America" and its get updated to "USA", 4 free bytes will be available.
 # *zmend* : Always 255. Indicates the end of the zipmap.
 
+*Worked Example*
+@18 02 06 4d 4b 44 31 47 36 01 00 32 05 59 4e 4e 58 4b 04 00 46 37 54 49 ff ..@
+
+# Start by decoding this using "String Encoding". You will notice that @18@ is the length of the string. Accordingly, we will read the next 24 bytes i.e. upto @ff@
+# Now, we are parsing the string starting at @02 06... @ using the "Zipmap Encoding"
+# @02@ is the number of entries in the hashmap.
+# @06@ is the length of the next string. Since this is less than 254, we don't have to read any additional bytes
+# We read the next 6 bytes i.e. @4d 4b 44 31 47 36@ to get the key "MKD1G6"
+# @01@ is the length of the next string, which would be the value
+# @00@ is the number of free bytes
+# We read the next 1 byte(s), which is @0x32@. Thus, we get our value "2"
+# In this case, the free bytes is 0, so we don't skip anything
+# @05@ is the length of the next string, in this case a key. 
+# We read the next 5 bytes @59 4e 4e 58 4b@, to get the key "YNNXK"
+# @04@ is the length of the next string, which is a value
+# @00@ is the number of free bytes after the value
+# We read the next 4 bytes i.e. @46 37 54 49@ to get the value "F7TI"
+# Finally, we encounter @FF@, which indicates the end of this zip map
+# Thus, this zip map represents the hash @{"MKD1G6" => "2", "YNNXK" => "F7TI"}@
+
 h3. Ziplist Encoding
 
+A Ziplist is a list that has been serialized to a string. In essence, the elements of the list are stored sequentially along with flags and offsets to allow efficient traversal of the list in both directions.
+
+To parse a ziplist, first a string is read from thee stream using "String Encoding". This string is the envelope of the ziplist. The contents of this string represent the ziplist.
+
+The structure of a ziplist within this string is as follows -
+@<zlbytes><zltail><zllen><entry><entry><zlend>@
+
+# *zlbytes* : This is a 4 byte unsigned integer representing the total size in bytes of the zip list. The 4 bytes are in little endian format - the least signinficant bit comes first.
+# *zltail* : This is a 4 byte unsigned integer in little endian format. It represents the offset to the tail (i.e. last) entry in the zip list
+# *zllen* : This is a 2 byte unsigned integer in little endian format. It represents the number of entries in this zip list
+# *entry* : An entry represents an element in the zip list. Details below
+# *zlend* : Is always equal to @255@. It represents the end of the zip list.
+
+Each entry in the zip list has the following format :
+@<length-prev-entry><special-flag><raw-bytes-of-entry>@
+
+*length-prev-entry* : This field stores the length of the previous entry, or 0 if this is the first entry. This allows easy traversal of the list in the reverse direction. This length is stored in either 1 byte or in 5 bytes. If the first byte is less than or equal to 253, it is considered as the length. If the first byte is 254, then the next 4 bytes are used to store the length. The 4 bytes are read as an unsigned integer.
+
+*Special flag* : This flag indicates whether the entry is a string or an integer. It also indicates the length of the string, or the size of the integer. 
+The various encodings of this flag are shown below :
+# |00pppppp| - 1 byte : String value with length less than or equal to 63 bytes (6 bits).
+# |01pppppp|qqqqqqqq| - 2 bytes : String value with length less than or equal to 16383 bytes (14 bits).
+# |10______|qqqqqqqq|rrrrrrrr|ssssssss|tttttttt| - 5 bytes : String value with length greater than or equal to 16384 bytes.
+# |1100____| - 1 byte : Integer encoded as int16_t (2 bytes).
+# |1101____| - 1 byte : Integer encoded as int32_t (4 bytes).
+# |1110____| - 1 byte : Integer encoded as int64_t (8 bytes).
+
+*Raw Bytes* : After the special flag, the raw bytes of entry follow. The number of bytes was previously determined as part of the special flag.
+
+*Worked Example 1*
+@23 23 00 00 00 1e 00 00 00 04 00 00 e0 ff ff ff ff ff ff ff 7f 0a d0 ff ff 00 00 06 c0 fc 3f 04 c0 3f 00 ff ... @
+@  |           |           |     |                             |                 |           |           |       @
+
+# Start by decoding this using "String Encoding". @23@ is the length of the string, therefore we will read the next 35 bytes till @ff@
+# Now, we are parsing the string starting at @23 00 00 ...@ using "Ziplist encoding"
+# The first 4 bytes @23 00 00 00@ represent the total length in bytes of this ziplist. Notice that this is in little endian format
+# The next 4 bytes @1e 00 00 00@ represent the offset to the tail entry. @1e@ = 30, and this is a 0 based offset. 0th position = @23@, 1st position = @00@ and so on. It follows that the last entry starts at @04 c0 3f 00 ..@
+# The next 2 bytes @04 00@ represent the number of entries in this list.
+# From now on, we start reading the entries
+# @00@ represents the lenght of previous entry. 0 indicates this is the first entry.
+# @e0@ is the special flag. Since it starts with the bit pattern @1110____@, we read the next 8 bytes as an integer. This is the first entry of the list.
+# We now start the second entry
+# @0a@ is the length of the previous entry. 10 bytes = 1 byte for prev. length + 1 byte for special flag + 8 bytes for integer.
+# @d0@ is the special flag. Since it starts with the bit pattern @1101____@, we read the next 4 bytes as an integer. This is the second entry of the list
+# We now start the third entry
+# @06@ is the length of previous entry. 6 bytes = 1 byte for prev. length + 1 byte for special flag + 4 bytes for integer
+# @c0@ is the special flag. Since it starts with the bit pattern @1100____@, we read the next 2 bytes as an integer. This is the third entry of the list
+# We now start the last entry
+# @04@ is length of previous entry
+# @c0@ indicates a 2 byte number
+# We read the next 2 bytes, which gives us our fourth entry
+# Finally, we encounter @ff@, which tells us we have consumed all elements in this ziplist.
+
+
 h3. Intset Encoding
+
+
 
 h3. Sorted Set as Ziplist Encoding
 
