@@ -1,0 +1,5 @@
+Please use
+ python setup.py install
+
+To report errors, create a new issue on Github - https://github.com/sripathikrishnan/redis-rdb-tools/issues
+

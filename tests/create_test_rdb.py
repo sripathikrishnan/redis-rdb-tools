@@ -1,31 +1,51 @@
 import redis
 import random
 import string
+import shutil
+import os
 
 r = redis.StrictRedis()
 
-def create_test_rdb() :
+def create_test_rdbs(path_to_redis_dump, dump_folder) :
     clean_database()
-    keys_with_expiry()
-    integer_keys()
-    uncompressible_string_keys()
-    easily_compressible_string_key()
-    zipmap_that_doesnt_compress()
-    zipmap_that_compresses_easily()
-    #dictionary()
-    ziplist_that_compresses_easily()
-    ziplist_that_doesnt_compress()
-    ziplist_with_integers()
-    #linkedlist()
-    intset_16()
-    intset_32()
-    intset_64()
-    regular_set()
-    sorted_set_as_ziplist()
-    regular_sorted_set()
+    tests = (
+                empty_database,
+                keys_with_expiry, 
+                integer_keys, 
+                uncompressible_string_keys, 
+                easily_compressible_string_key, 
+                zipmap_that_doesnt_compress, 
+                zipmap_that_compresses_easily, 
+                dictionary, 
+                ziplist_that_compresses_easily, 
+                ziplist_that_doesnt_compress, 
+                ziplist_with_integers, 
+                linkedlist, 
+                intset_16, 
+                intset_32, 
+                intset_64, 
+                regular_set, 
+                sorted_set_as_ziplist, 
+                regular_sorted_set
+            )
+    for t in tests :
+        create_rdb_file(t, path_to_redis_dump, dump_folder)
+
+def create_rdb_file(test, path_to_rdb, dump_folder):
+    clean_database()
+    test()
+    save_database()
+    file_name = "%s.rdb" % test.__name__
+    shutil.copy(path_to_rdb, os.path.join(dump_folder, file_name))
     
 def clean_database() :
-    r.flushdb()
+    r.flushall()
+
+def save_database() :
+    r.save()
+    
+def empty_database() :
+    pass
 
 def keys_with_expiry() :
     pass
@@ -120,8 +140,20 @@ def random_string(length, seed) :
     random.seed(seed)
     return ''.join(random.choice(string.ascii_uppercase + string.digits) for x in range(length))
 
+def backup_redis_dump(redis_dump, backup_folder):
+    backup_file = os.path.join(backup_folder, 'dump.rdb.backup')
+    shutil.copy(redis_dump, backup_file)
+    
 def main() :
-    create_test_rdb()
+    dump_folder = os.path.join(os.path.dirname(__file__), 'dumps')
+    if not os.path.exists(dump_folder) :
+        os.makedirs(dump_folder)
+    
+    redis_dump = '/var/redis/6379/dump.rdb'
+    
+    backup_redis_dump(redis_dump, dump_folder)
+    create_test_rdbs(redis_dump, dump_folder)
 
 if __name__ == '__main__' :
-    main()        
+    main()
+

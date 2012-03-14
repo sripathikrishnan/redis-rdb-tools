@@ -1,0 +1,11 @@
+* 0.1.1
+    * Fixed lzf decompression
+    * Standard python project layout
+    * Python script to automatically create test RDB files
+    * Adds test cases
+    * Adds setup.py to easily install this library
+    * Adds MIT license
+
+* 0.1.0
+    * Initial version
+    * Specification for RDB file format
