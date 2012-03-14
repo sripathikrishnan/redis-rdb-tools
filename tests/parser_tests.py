@@ -44,10 +44,14 @@ class RedisParserTestCase(unittest.TestCase):
 
     def test_zipmap_thats_compresses_easily(self):
         r = self.load_rdb('zipmap_that_compresses_easily.rdb')
-        print(r)
         self.assertEquals(r.databases[0]["zipmap_compresses_easily"]["a"], "aa")
         self.assertEquals(r.databases[0]["zipmap_compresses_easily"]["aa"], "aaaa")
         self.assertEquals(r.databases[0]["zipmap_compresses_easily"]["aaaaa"], "aaaaaaaaaaaaaa")
+        
+    def test_zipmap_that_doesnt_compress(self):
+        r = self.load_rdb('zipmap_that_doesnt_compress.rdb')
+        self.assertEquals(r.databases[0]["zimap_doesnt_compress"]["MKD1G6"], "2")
+        self.assertEquals(r.databases[0]["zimap_doesnt_compress"]["YNNXK"], "F7TI")
 
 class MockRedis(RdbCallback):
     def __init__(self) :
