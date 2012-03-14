@@ -1,5 +1,7 @@
 import struct
 import StringIO
+import io
+import sys
 
 REDIS_RDB_6BITLEN = 0
 REDIS_RDB_14BITLEN = 1
@@ -82,55 +84,56 @@ class RdbCallback :
 
 class DebugCallback(RdbCallback) :
     def start_rdb(self):
-        print('Start Parsing RDB')
+        print('[')
     
     def start_database(self, db_number):
-        print('Starting database %d' % db_number)
+        print('{')
     
     def set(self, key, value, expiry):
-        print('%s = %s [expires = %s]' % (str(key), str(value), str(expiry)))
+        print('"%s" : "%s"' % (str(key), str(value)))
     
     def start_hash(self, key, length, expiry):
-        print("Start hash %s with %d elements [expires = %s]" % (str(key), length, str(expiry)))
+        print('"%s" : {' % str(key))
+        pass
     
     def hset(self, key, field, value):
-        pass
+        print('"%s" : "%s"' % (str(field), str(value)))
     
     def end_hash(self, key):
-        pass
+        print('}')
     
     def start_set(self, key, cardinality, expiry):
-        pass
+        print('"%s" : [' % str(key))
 
     def sadd(self, key, member):
-        pass
+        print('"%s"' % str(member))
     
     def end_set(self, key):
-        pass
+        print(']')
     
-    def start_list(self, key, expiry):
-        pass
+    def start_list(self, key, length, expiry):
+        print('"%s" : [' % str(key))
     
     def rpush(self, key, value) :
-        pass
+        print('"%s"' % str(member))
     
     def end_list(self, key):
-        pass
+        print(']')
     
     def start_sorted_set(self, key, length, expiry):
-        pass
+        print('"%s" : {' % str(key))
     
     def zadd(self, key, score, member):
-        pass
+        print('"%s" : "%s"' % (str(member), str(score)))
     
     def end_sorted_set(self, key):
-        pass
+        print('}')
     
     def end_database(self, db_number):
-        print('End database %d' % db_number)
+        print('}')
     
     def end_rdb(self):
-        print('End Parsing RDB')
+        print(']')
 
 class RdbParser :
     def __init__(self, callback) :
@@ -224,7 +227,7 @@ class RdbParser :
 
     def read_length_with_encoding(self, f) :
         length = 0
-        is_encoded = False    
+        is_encoded = False
         bytes = []
         bytes.append(read_unsigned_char(f))
         enc_type = (bytes[0] & 0xC0) >> 6
@@ -237,7 +240,7 @@ class RdbParser :
             bytes.append(read_unsigned_char(f))
             length = ((bytes[0]&0x3F)<<8)|bytes[1]
         else :
-            length = ntohl(f)    
+            length = ntohl(f)
         return (length, is_encoded)
 
     def read_string(self, f) :
@@ -257,8 +260,8 @@ class RdbParser :
             elif length == REDIS_RDB_ENC_LZF :
                 clen = self.read_length(f)
                 l = self.read_length(f)
-                f.read(clen)
-                val = "COMPRESSED"
+                #print('Uncompressed length = %d' % l)
+                val = lzf_decompress(f.read(clen), l)
         else :
             val = f.read(length)
         return val
@@ -266,8 +269,6 @@ class RdbParser :
     def read_intset(self, f) :
         entries = []
         raw_string = self.read_string(f)
-        if raw_string =='COMPRESSED' :
-            return ["compressed_ziplist"]
         buff = StringIO.StringIO(raw_string)
         encoding = read_unsigned_int(buff)
         num_entries = read_unsigned_int(buff)
@@ -281,7 +282,6 @@ class RdbParser :
                 entry = read_unsigned_short(buff)
             else :
                 raise Exception('read_intset', 'Invalid encoding %d' % encoding)
-            
             entries.append(entry)
         
         return entries
@@ -337,7 +337,7 @@ class RdbParser :
         if raw_string == 'COMPRESSED' :
             return {"compressed_zip_map" : True}
         
-        buff = StringIO.StringIO(raw_string)
+        buff = io.BytesIO(bytearray(raw_string))
         num_entries = read_unsigned_char(buff)
         while True :
             next_length = self.read_zipmap_next_length(buff)
@@ -374,13 +374,52 @@ class RdbParser :
             raise Exception('verify_version', 'Invalid RDB version number %d' % version)
 
 
-def skip(f, free) :
+def skip(f, free):
     if free :
         f.read(free)
 
-#TODO revisit this method
+def lzf_decompress(compressed, expected_length):
+    in_stream = bytearray(compressed)
+    in_len = len(in_stream)
+    in_index = 0
+    out_stream = bytearray()
+    out_index = 0
+
+    while in_index < in_len :
+        ctrl = in_stream[in_index]
+        if not isinstance(ctrl, int) :
+            raise Exception('lzf_decompress', 'ctrl should be a number %s' % str(ctrl))
+        in_index = in_index + 1
+        if ctrl < 32 :
+            for x in xrange(0, ctrl + 1) :
+                out_stream.append(in_stream[in_index])
+                #sys.stdout.write(chr(in_stream[in_index]))
+                in_index = in_index + 1
+                out_index = out_index + 1
+        else :
+            length = ctrl >> 5
+            if length == 7 :
+                length = length + in_stream[in_index]
+                in_index = in_index + 1
+            
+            ref = out_index - ((ctrl & 0x1f) << 8) - in_stream[in_index] - 1
+            in_index = in_index + 1
+            for x in xrange(0, length + 2) :
+                out_stream.append(out_stream[ref])
+                ref = ref + 1
+                out_index = out_index + 1
+    if len(out_stream) != expected_length :
+        raise Exception('lzf_decompress', 'Expected lengths do not match %d != %d' % (len(out_stream), expected_length))
+    return out_stream
+
 def ntohl(f) :
-    read_unsigned_int(f)
+    val = read_unsigned_int(f)
+    new_val = 0
+    new_val = new_val | ((val & 0x000000ff) << 24)
+    new_val = new_val | ((val & 0xff000000) >> 24)
+    new_val = new_val | ((val & 0x0000ff00) << 8)
+    new_val = new_val | ((val & 0x00ff0000) >> 8)
+    return new_val
 
 def read_signed_char(f) :
     return struct.unpack('b', f.read(1))[0]
@@ -406,11 +445,27 @@ def read_signed_long(f) :
 def read_unsigned_long(f) :
     return struct.unpack('Q', f.read(8))[0]
 
+def string_as_hexcode(string) :
+    for s in string :
+        if isinstance(s, int) :
+            print(hex(s))
+        else :
+            print(hex(ord(s)))
+
 def main() :
     callback = DebugCallback()
     parser = RdbParser(callback)
     parser.parse("dump.rdb")
-
+    
+    #compressed = [0x0a,  0x03,  0x01,  0x61,  0x02,  0x00,  0x61,  0x61,  0x02,  0x61,  0x61,  0x04,  0x20,  0x06,  0x02,  0x61,  0x61,  0x05,  0x20,  0x03,  0x02,  0x61,  0x61,  0x0e,  0x60,  0x0b,  0xe0,  0x00,  0x00,  0x01,  0x61,  0xff]
+    
+    #compressed = [0x01, 0x61, 0x61, 0xe0, 0xbb, 0x00, 0x01, 0x61, 0x61]
+    
+    #compressed = [0x1f,  0x74,  0x68,  0x65,  0x5f,  0x71,  0x75,  0x69,  0x63,  0x6b,  0x5f,  0x62,  0x72,  0x6f,  0x77,  0x6e,  0x5f,  0x66,  0x6f,  0x78,  0x5f,  0x6a,  0x75,  0x6d,  0x70,  0x65,  0x64,  0x5f,  0x6f,  0x76,  0x65,  0x72,  0x5f,  0x00,  0x74,  0x20,  0x1f,  0x07,  0x6c,  0x61,  0x7a,  0x79,  0x5f,  0x64,  0x6f,  0x67,  0x60,  0x0c,  0xe0,  0x1a,  0x2c,  0x00,  0x69,  0x20,  0x37,  0x40,  0x2e,  0x06,  0x61,  0x73,  0x5f,  0x77,  0x65,  0x6c,  0x6c]
+    
+    #decompressed = lzf_decompress(compressed, 39)
+    #print str(string_as_hexcode(decompressed))
+    
 if __name__ == '__main__' :
     main()
 
