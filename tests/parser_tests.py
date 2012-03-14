@@ -19,6 +19,35 @@ class RedisParserTestCase(unittest.TestCase):
         r = self.load_rdb('empty_database.rdb')
         self.assert_('start_rdb' in r.methods_called)
         self.assert_('end_rdb' in r.methods_called)
+        self.assertEquals(len(r.databases), 0, msg = "didn't expect any databases")
+
+    def test_keys_with_expiry(self):
+        self.fail("Not Implemented")
+    
+    def test_integer_keys(self):
+        r = self.load_rdb('integer_keys.rdb')
+        self.assertEquals(r.databases[0][125], "Positive 8 bit integer")
+        self.assertEquals(r.databases[0][0xABAB], "Positive 16 bit integer")
+        self.assertEquals(r.databases[0][0x0AEDD325], "Positive 32 bit integer")
+        
+    def test_negative_integer_keys(self):
+        r = self.load_rdb('integer_keys.rdb')
+        self.assertEquals(r.databases[0][-123], "Negative 8 bit integer")
+        self.assertEquals(r.databases[0][-0x7325], "Negative 16 bit integer")
+        self.assertEquals(r.databases[0][-0x0AEDD325], "Negative 32 bit integer")
+    
+    def test_string_key_with_compression(self):
+        r = self.load_rdb('easily_compressible_string_key.rdb')
+        key = "".join('a' for x in range(0, 200))
+        value = "Key that redis should compress easily"
+        self.assertEquals(r.databases[0][key], value)
+
+    def test_zipmap_thats_compresses_easily(self):
+        r = self.load_rdb('zipmap_that_compresses_easily.rdb')
+        print(r)
+        self.assertEquals(r.databases[0]["zipmap_compresses_easily"]["a"], "aa")
+        self.assertEquals(r.databases[0]["zipmap_compresses_easily"]["aa"], "aaaa")
+        self.assertEquals(r.databases[0]["zipmap_compresses_easily"]["aaaaa"], "aaaaaaaaaaaaaa")
 
 class MockRedis(RdbCallback):
     def __init__(self) :
@@ -56,89 +85,89 @@ class MockRedis(RdbCallback):
     def set(self, key, value, expiry):
         self.currentdb()[key] = value
         if expiry :
-            store_expiry(key, expiry)
+            self.store_expiry(key, expiry)
     
     def start_hash(self, key, length, expiry):
-        if key in currentdb() :
+        if key in self.currentdb() :
             raise Exception('start_hash called with key %s that already exists' % key)
         else :
-            currentdb()[key] = {}
+            self.currentdb()[key] = {}
         if expiry :
-            store_expiry(key, expiry)
-        store_length(key, length)
+            self.store_expiry(key, expiry)
+        self.store_length(key, length)
     
     def hset(self, key, field, value):
-        if not key in currentdb() :
+        if not key in self.currentdb() :
             raise Exception('start_hash not called for key = %s', key)
-        currentdb()[key][field] = value
+        self.currentdb()[key][field] = value
     
     def end_hash(self, key):
-        if not key in currentdb() :
+        if not key in self.currentdb() :
             raise Exception('start_hash not called for key = %s', key)
-        if len(currentdb()[key]) != self.lengths[self.dbnum][key] :
+        if len(self.currentdb()[key]) != self.lengths[self.dbnum][key] :
             raise Exception('Lengths mismatch on hash %s, expected length = %d, actual = %d'
                                  % (key, self.lengths[self.dbnum][key], len(currentdb()[key])))
     
     def start_set(self, key, cardinality, expiry):
-        if key in currentdb() :
+        if key in self.currentdb() :
             raise Exception('start_set called with key %s that already exists' % key)
         else :
-            currentdb()[key] = []
+            self.currentdb()[key] = []
         if expiry :
-            store_expiry(key, expiry)
-        store_length(key, length)
+            self.store_expiry(key, expiry)
+        self.store_length(key, length)
 
     def sadd(self, key, member):
-        if not key in currentdb() :
+        if not key in self.currentdb() :
             raise Exception('start_set not called for key = %s', key)
-        currentdb()[key].append(value)
+        self.currentdb()[key].append(value)
     
     def end_set(self, key):
-        if not key in currentdb() :
+        if not key in self.currentdb() :
             raise Exception('start_set not called for key = %s', key)
-        if len(currentdb()[key]) != self.lengths[self.dbnum][key] :
+        if len(self.currentdb()[key]) != self.lengths[self.dbnum][key] :
             raise Exception('Lengths mismatch on set %s, expected length = %d, actual = %d'
                                  % (key, self.lengths[self.dbnum][key], len(currentdb()[key])))
 
     def start_list(self, key, length, expiry):
-        if key in currentdb() :
+        if key in self.currentdb() :
             raise Exception('start_list called with key %s that already exists' % key)
         else :
-            currentdb()[key] = []
+            self.currentdb()[key] = []
         if expiry :
-            store_expiry(key, expiry)
-        store_length(key, length)
+            self.store_expiry(key, expiry)
+        self.store_length(key, length)
     
     def rpush(self, key, value) :
-        if not key in currentdb() :
+        if not key in self.currentdb() :
             raise Exception('start_list not called for key = %s', key)
-        currentdb()[key].append(value)
+        self.currentdb()[key].append(value)
     
     def end_list(self, key):
-        if not key in currentdb() :
+        if not key in self.currentdb() :
             raise Exception('start_set not called for key = %s', key)
-        if len(currentdb()[key]) != self.lengths[self.dbnum][key] :
+        if len(self.currentdb()[key]) != self.lengths[self.dbnum][key] :
             raise Exception('Lengths mismatch on list %s, expected length = %d, actual = %d'
                                  % (key, self.lengths[self.dbnum][key], len(currentdb()[key])))
 
     def start_sorted_set(self, key, length, expiry):
-        if key in currentdb() :
+        if key in self.currentdb() :
             raise Exception('start_sorted_set called with key %s that already exists' % key)
         else :
-            currentdb()[key] = []
+            self.currentdb()[key] = []
         if expiry :
-            store_expiry(key, expiry)
-        store_length(key, length)
+            self.store_expiry(key, expiry)
+        self.store_length(key, length)
     
     def zadd(self, key, score, member):
-        if not key in currentdb() :
+        if not key in self.currentdb() :
             raise Exception('start_sorted_set not called for key = %s', key)
-        currentdb()[key][member] = score
+        self.currentdb()[key][member] = score
     
     def end_sorted_set(self, key):
-        if not key in currentdb() :
+        if not key in self.currentdb() :
             raise Exception('start_set not called for key = %s', key)
-        if len(currentdb()[key]) != self.lengths[self.dbnum][key] :
+        if len(self.currentdb()[key]) != self.lengths[self.dbnum][key] :
             raise Exception('Lengths mismatch on sortedset %s, expected length = %d, actual = %d'
                                  % (key, self.lengths[self.dbnum][key], len(currentdb()[key])))
 

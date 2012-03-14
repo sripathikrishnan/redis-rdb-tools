@@ -18,8 +18,6 @@ REDIS_RDB_TYPE_LIST = 1
 REDIS_RDB_TYPE_SET = 2
 REDIS_RDB_TYPE_ZSET = 3
 REDIS_RDB_TYPE_HASH = 4
-
-# Object types for encoded objects
 REDIS_RDB_TYPE_HASH_ZIPMAP = 9
 REDIS_RDB_TYPE_LIST_ZIPLIST = 10
 REDIS_RDB_TYPE_SET_INTSET = 11
@@ -139,7 +137,7 @@ class RdbParser :
     def __init__(self, callback) :
         self._callback = callback
         self._key = None
-        self._expiry = -1
+        self._expiry = 0
 
     def parse(self, filename):
         with open(filename, "rb") as f:
@@ -150,7 +148,7 @@ class RdbParser :
             is_first_database = True
             db_number = 0
             while True :
-                self._expiry = -1
+                self._expiry = 0
                 data_type = read_unsigned_char(f)
                 
                 if data_type == REDIS_RDB_OPCODE_EXPIRETIME_MS :
@@ -332,13 +330,11 @@ class RdbParser :
         return value
         
     def read_zipmap(self, f) :
-        entries = {}        
         raw_string = self.read_string(f)
-        if raw_string == 'COMPRESSED' :
-            return {"compressed_zip_map" : True}
-        
         buff = io.BytesIO(bytearray(raw_string))
         num_entries = read_unsigned_char(buff)
+        
+        self._callback.start_hash(self._key, num_entries, self._expiry)
         while True :
             next_length = self.read_zipmap_next_length(buff)
             if next_length is None :
@@ -350,8 +346,8 @@ class RdbParser :
             free = read_unsigned_char(buff)
             value = buff.read(next_length)
             skip(buff, free)
-            entries[key] = value
-        return entries
+            self._callback.hset(self._key, key, value)
+        self._callback.end_hash(self._key)
 
     def read_zipmap_next_length(self, f) :
         num = read_unsigned_char(f)
@@ -410,7 +406,7 @@ def lzf_decompress(compressed, expected_length):
                 out_index = out_index + 1
     if len(out_stream) != expected_length :
         raise Exception('lzf_decompress', 'Expected lengths do not match %d != %d' % (len(out_stream), expected_length))
-    return out_stream
+    return str(out_stream)
 
 def ntohl(f) :
     val = read_unsigned_int(f)
@@ -451,21 +447,4 @@ def string_as_hexcode(string) :
             print(hex(s))
         else :
             print(hex(ord(s)))
-
-def main() :
-    callback = DebugCallback()
-    parser = RdbParser(callback)
-    parser.parse("dump.rdb")
-    
-    #compressed = [0x0a,  0x03,  0x01,  0x61,  0x02,  0x00,  0x61,  0x61,  0x02,  0x61,  0x61,  0x04,  0x20,  0x06,  0x02,  0x61,  0x61,  0x05,  0x20,  0x03,  0x02,  0x61,  0x61,  0x0e,  0x60,  0x0b,  0xe0,  0x00,  0x00,  0x01,  0x61,  0xff]
-    
-    #compressed = [0x01, 0x61, 0x61, 0xe0, 0xbb, 0x00, 0x01, 0x61, 0x61]
-    
-    #compressed = [0x1f,  0x74,  0x68,  0x65,  0x5f,  0x71,  0x75,  0x69,  0x63,  0x6b,  0x5f,  0x62,  0x72,  0x6f,  0x77,  0x6e,  0x5f,  0x66,  0x6f,  0x78,  0x5f,  0x6a,  0x75,  0x6d,  0x70,  0x65,  0x64,  0x5f,  0x6f,  0x76,  0x65,  0x72,  0x5f,  0x00,  0x74,  0x20,  0x1f,  0x07,  0x6c,  0x61,  0x7a,  0x79,  0x5f,  0x64,  0x6f,  0x67,  0x60,  0x0c,  0xe0,  0x1a,  0x2c,  0x00,  0x69,  0x20,  0x37,  0x40,  0x2e,  0x06,  0x61,  0x73,  0x5f,  0x77,  0x65,  0x6c,  0x6c]
-    
-    #decompressed = lzf_decompress(compressed, 39)
-    #print str(string_as_hexcode(decompressed))
-    
-if __name__ == '__main__' :
-    main()
 

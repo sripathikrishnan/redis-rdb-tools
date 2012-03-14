@@ -67,9 +67,9 @@ def easily_compressible_string_key() :
     r.set("".join('a' for x in range(0, 200)), "Key that redis should compress easily")
 
 def zipmap_that_compresses_easily() :
-    r.hset("zimap_compresses_easily", "a", "aa")
-    r.hset("zimap_compresses_easily", "aa", "aaaa")
-    r.hset("zimap_compresses_easily", "aaaaa", "aaaaaaaaaaaaaa")
+    r.hset("zipmap_compresses_easily", "a", "aa")
+    r.hset("zipmap_compresses_easily", "aa", "aaaa")
+    r.hset("zipmap_compresses_easily", "aaaaa", "aaaaaaaaaaaaaa")
     
 def zipmap_that_doesnt_compress() :
     r.hset("zimap_doesnt_compress", "MKD1G6", "2")
