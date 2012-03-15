@@ -1,5 +1,6 @@
 import unittest
 import os
+import math
 from rdbtools.parser import RdbCallback, RdbParser
 
 class RedisParserTestCase(unittest.TestCase):
@@ -125,6 +126,18 @@ class RedisParserTestCase(unittest.TestCase):
         for member in ("alpha", "beta", "gamma", "delta", "phi", "kappa") :
             self.assert_(member in r.databases[0]["regular_set"], msg=('%s missing' % member))
 
+    def test_sorted_set_as_ziplist(self):
+        r = self.load_rdb('sorted_set_as_ziplist.rdb')
+        self.assertEquals(r.lengths[0]["sorted_set_as_ziplist"], 3)
+        zset = r.databases[0]["sorted_set_as_ziplist"]
+        self.assert_(floateq(zset['8b6ba6718a786daefa69438148361901'], 1))
+        self.assert_(floateq(zset['cb7a24bb7528f934b841b34c3a73e0c7'], 2.37))
+        self.assert_(floateq(zset['523af537946b79c4f8369ed39ba78605'], 3.423))
+
+
+def floateq(f1, f2) :
+    return math.fabs(f1 - f2) < 0.00001
+    
 class MockRedis(RdbCallback):
     def __init__(self) :
         self.databases = {}
@@ -230,7 +243,7 @@ class MockRedis(RdbCallback):
         if key in self.currentdb() :
             raise Exception('start_sorted_set called with key %s that already exists' % key)
         else :
-            self.currentdb()[key] = []
+            self.currentdb()[key] = {}
         if expiry :
             self.store_expiry(key, expiry)
         self.store_length(key, length)

@@ -132,8 +132,8 @@ def regular_set() :
 
 def sorted_set_as_ziplist() :
     r.zadd("sorted_set_as_ziplist", 1, "8b6ba6718a786daefa69438148361901")
-    r.zadd("sorted_set_as_ziplist", 2, "cb7a24bb7528f934b841b34c3a73e0c7")
-    r.zadd("sorted_set_as_ziplist", 3, "523af537946b79c4f8369ed39ba78605")
+    r.zadd("sorted_set_as_ziplist", 2.37, "cb7a24bb7528f934b841b34c3a73e0c7")
+    r.zadd("sorted_set_as_ziplist", 3.423, "523af537946b79c4f8369ed39ba78605")
     
 def regular_sorted_set() :
     num_entries = 500

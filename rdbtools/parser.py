@@ -217,7 +217,7 @@ class RdbParser :
         elif enc_type == REDIS_RDB_TYPE_SET_INTSET :
             self.read_intset(f)
         elif enc_type == REDIS_RDB_TYPE_ZSET_ZIPLIST :
-            self.read_ziplist(f)
+            self.read_zset_from_ziplist(f)
         else :
             raise Exception('read_object', 'Invalid object type %d' % enc_type)
 
@@ -297,6 +297,27 @@ class RdbParser :
         if zlist_end != 255 : 
             raise Exception('read_ziplist', "Invalid zip list end - %d" % zlist_end)
         self._callback.end_list(self._key)
+
+    def read_zset_from_ziplist(self, f) :
+        raw_string = self.read_string(f)
+        buff = StringIO.StringIO(raw_string)
+        zlbytes = read_unsigned_int(buff)
+        tail_offset = read_unsigned_int(buff)
+        num_entries = read_unsigned_short(buff)
+        if (num_entries % 2) :
+            raise Exception('read_zset_from_ziplist', "Expected even number of elements, but found %d" % num_entries)
+        num_entries = num_entries /2
+        self._callback.start_sorted_set(self._key, num_entries, self._expiry)
+        for x in xrange(0, num_entries) :
+            member = self.read_ziplist_entry(buff)
+            score = self.read_ziplist_entry(buff)
+            if isinstance(score, str) :
+                score = float(score)
+            self._callback.zadd(self._key, score, member)
+        zlist_end = read_unsigned_char(buff)
+        if zlist_end != 255 : 
+            raise Exception('read_ziplist', "Invalid zip list end - %d" % zlist_end)
+        self._callback.end_sorted_set(self._key)
 
     def read_ziplist_entry(self, f) :
         length = 0
