@@ -103,7 +103,13 @@ class RedisParserTestCase(unittest.TestCase):
         self.assertEquals(r.lengths[0]["intset_64"], 3)
         for num in (0x7ffefffefffefffe, 0x7ffefffefffefffd, 0x7ffefffefffefffc) :
             self.assert_(num in r.databases[0]["intset_64"])
-    
+
+    def test_regular_set(self):
+        r = self.load_rdb('regular_set.rdb')
+        self.assertEquals(r.lengths[0]["regular_set"], 6)
+        for member in ("alpha", "beta", "gamma", "delta", "phi", "kappa") :
+            self.assert_(member in r.databases[0]["regular_set"], msg=('%s missing' % member))
+
 class MockRedis(RdbCallback):
     def __init__(self) :
         self.databases = {}
