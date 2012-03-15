@@ -285,23 +285,19 @@ class RdbParser :
         return entries
 
     def read_ziplist(self, f) :
-        entries = []
         raw_string = self.read_string(f)
-        if raw_string =='COMPRESSED' :
-            return ["compressed_ziplist"]
-
         buff = StringIO.StringIO(raw_string)
         zlbytes = read_unsigned_int(buff)
         tail_offset = read_unsigned_int(buff)
         num_entries = read_unsigned_short(buff)
-        
+        self._callback.start_list(self._key, num_entries, self._expiry)
         for x in xrange(0, num_entries) :
-            entries.append(self.read_ziplist_entry(buff))
-        
+            val = self.read_ziplist_entry(buff)
+            self._callback.rpush(self._key, val)
         zlist_end = read_unsigned_char(buff)
         if zlist_end != 255 : 
             raise Exception('read_ziplist', "Invalid zip list end - %d" % zlist_end)
-        return entries
+        self._callback.end_list(self._key)
 
     def read_ziplist_entry(self, f) :
         length = 0

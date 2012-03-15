@@ -53,6 +53,34 @@ class RedisParserTestCase(unittest.TestCase):
         self.assertEquals(r.databases[0]["zimap_doesnt_compress"]["MKD1G6"], "2")
         self.assertEquals(r.databases[0]["zimap_doesnt_compress"]["YNNXK"], "F7TI")
 
+    def test_dictionary(self):
+        r = self.load_rdb('dictionary.rdb')
+        self.assertEquals(r.lengths[0]["force_dictionary"], 1000)
+        self.assertEquals(r.databases[0]["force_dictionary"]["ZMU5WEJDG7KU89AOG5LJT6K7HMNB3DEI43M6EYTJ83VRJ6XNXQ"], 
+                    "T63SOS8DQJF0Q0VJEZ0D1IQFCYTIPSBOUIAI9SB0OV57MQR1FI")
+        self.assertEquals(r.databases[0]["force_dictionary"]["UHS5ESW4HLK8XOGTM39IK1SJEUGVV9WOPK6JYA5QBZSJU84491"], 
+                    "6VULTCV52FXJ8MGVSFTZVAGK2JXZMGQ5F8OVJI0X6GEDDR27RZ")
+    
+    def test_ziplist_that_compresses_easily(self):
+        r = self.load_rdb('ziplist_that_compresses_easily.rdb')
+        self.assertEquals(r.lengths[0]["ziplist_compresses_easily"], 6)
+        for length in (6, 12, 18, 24, 30, 36) :
+            self.assert_(("".join("a" for x in xrange(length))) in r.databases[0]["ziplist_compresses_easily"])
+    
+    def test_ziplist_that_doesnt_compress(self):
+        r = self.load_rdb('ziplist_that_doesnt_compress.rdb')
+        self.assertEquals(r.lengths[0]["ziplist_doesnt_compress"], 2)
+        self.assert_("aj2410" in r.databases[0]["ziplist_doesnt_compress"])
+        self.assert_("cc953a17a8e096e76a44169ad3f9ac87c5f8248a403274416179aa9fbd852344" 
+                        in r.databases[0]["ziplist_doesnt_compress"])
+    
+    def test_ziplist_with_integers(self):
+        r = self.load_rdb('ziplist_with_integers.rdb')
+        self.assert_(63 in r.databases[0]["ziplist_with_integers"])
+        self.assert_(16380 in r.databases[0]["ziplist_with_integers"])
+        self.assert_(65535 in r.databases[0]["ziplist_with_integers"])
+        self.assert_(0x7fffffffffffffff in r.databases[0]["ziplist_with_integers"])
+        
 class MockRedis(RdbCallback):
     def __init__(self) :
         self.databases = {}

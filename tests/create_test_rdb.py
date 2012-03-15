@@ -81,12 +81,8 @@ def dictionary() :
         r.hset("force_dictionary", random_string(50, x), random_string(50, x + num_entries))
 
 def ziplist_that_compresses_easily() :
-    r.lpush("ziplist_compresses_easily", "aaaaaa")
-    r.lpush("ziplist_compresses_easily", "aaaaaaaaaaaa")
-    r.lpush("ziplist_compresses_easily", "aaaaaaaaaaaaaaaaaa")
-    r.lpush("ziplist_compresses_easily", "aaaaaaaaaaaaaaaaaaaaaaaa")
-    r.lpush("ziplist_compresses_easily", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-    r.lpush("ziplist_compresses_easily", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+    for length in (6, 12, 18, 24, 30, 36) :
+        r.lpush("ziplist_compresses_easily", ("".join("a" for x in xrange(length))))
     
 def ziplist_that_doesnt_compress() :
     r.lpush("ziplist_doesnt_compress", "aj2410")
