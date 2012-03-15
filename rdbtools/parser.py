@@ -2,6 +2,7 @@ import struct
 import StringIO
 import io
 import sys
+import datetime
 
 REDIS_RDB_6BITLEN = 0
 REDIS_RDB_14BITLEN = 1
@@ -137,7 +138,7 @@ class RdbParser :
     def __init__(self, callback) :
         self._callback = callback
         self._key = None
-        self._expiry = 0
+        self._expiry = None
 
     def parse(self, filename):
         with open(filename, "rb") as f:
@@ -148,14 +149,14 @@ class RdbParser :
             is_first_database = True
             db_number = 0
             while True :
-                self._expiry = 0
+                self._expiry = None
                 data_type = read_unsigned_char(f)
                 
                 if data_type == REDIS_RDB_OPCODE_EXPIRETIME_MS :
-                    self._expiry = read_unsigned_int(f)
+                    self._expiry = to_datetime(read_unsigned_long(f))
                     data_type = read_unsigned_char(f)
                 elif data_type == REDIS_RDB_OPCODE_EXPIRETIME :
-                    self._expiry = read_unsigned_int(f) * 1000
+                    self._expiry = to_datetime(read_unsigned_int(f) * 1000)
                     data_type = read_unsigned_char(f)
                 
                 if data_type == REDIS_RDB_OPCODE_SELECTDB :
@@ -411,6 +412,13 @@ def ntohl(f) :
     new_val = new_val | ((val & 0x00ff0000) >> 8)
     return new_val
 
+def to_datetime(usecs_since_epoch):
+    seconds_since_epoch = usecs_since_epoch / 1000000
+    useconds = usecs_since_epoch % 1000000
+    dt = datetime.datetime.fromtimestamp(seconds_since_epoch)
+    delta = datetime.timedelta(microseconds = useconds)
+    return dt + delta
+    
 def read_signed_char(f) :
     return struct.unpack('b', f.read(1))[0]
     

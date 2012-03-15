@@ -21,9 +21,24 @@ class RedisParserTestCase(unittest.TestCase):
         self.assert_('end_rdb' in r.methods_called)
         self.assertEquals(len(r.databases), 0, msg = "didn't expect any databases")
 
+    def test_multiple_databases(self):
+        r = self.load_rdb('multiple_databases.rdb')
+        self.assert_(len(r.databases), 2)
+        self.assert_(1 not in r.databases)
+        self.assertEquals(r.databases[0]["key_in_zeroth_database"], "zero")
+        self.assertEquals(r.databases[2]["key_in_second_database"], "second")
+        
     def test_keys_with_expiry(self):
-        self.fail("Not Implemented")
-    
+        r = self.load_rdb('keys_with_expiry.rdb')
+        expiry = r.expiry[0]['expires_ms_precision']
+        self.assertEquals(expiry.year, 2022)
+        self.assertEquals(expiry.month, 12)
+        self.assertEquals(expiry.day, 25)
+        self.assertEquals(expiry.hour, 10)
+        self.assertEquals(expiry.minute, 11)
+        self.assertEquals(expiry.second, 12)
+        self.assertEquals(expiry.microsecond, 573000)        
+        
     def test_integer_keys(self):
         r = self.load_rdb('integer_keys.rdb')
         self.assertEquals(r.databases[0][125], "Positive 8 bit integer")

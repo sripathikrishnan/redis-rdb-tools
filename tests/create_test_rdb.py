@@ -3,13 +3,16 @@ import random
 import string
 import shutil
 import os
+from datetime import datetime
 
 r = redis.StrictRedis()
+r2 = redis.StrictRedis(db=2)
 
 def create_test_rdbs(path_to_redis_dump, dump_folder) :
     clean_database()
     tests = (
                 empty_database,
+                multiple_databases,
                 keys_with_expiry, 
                 integer_keys, 
                 uncompressible_string_keys, 
@@ -48,8 +51,13 @@ def empty_database() :
     pass
 
 def keys_with_expiry() :
-    pass
+    r.set("expires_ms_precision", "2022-12-25 10:11:12.000573")
+    r.expireat("expires_ms_precision", 1671943272573)
 
+def multiple_databases() :
+    r.set("key_in_zeroth_database", "zero")
+    r2.set("key_in_second_database", "second")
+    
 def integer_keys() :
     r.set(-123, "Negative 8 bit integer")
     r.set(125, "Positive 8 bit integer")
