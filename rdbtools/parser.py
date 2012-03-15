@@ -113,7 +113,7 @@ class DebugCallback(RdbCallback) :
         print('"%s" : [' % str(key))
     
     def rpush(self, key, value) :
-        print('"%s"' % str(member))
+        print('"%s"' % str(value))
     
     def end_list(self, key):
         print(']')
@@ -265,12 +265,11 @@ class RdbParser :
         return val
 
     def read_intset(self, f) :
-        entries = []
         raw_string = self.read_string(f)
         buff = StringIO.StringIO(raw_string)
         encoding = read_unsigned_int(buff)
         num_entries = read_unsigned_int(buff)
-        
+        self._callback.start_set(self._key, num_entries, self._expiry)
         for x in xrange(0, num_entries) :
             if encoding == 8 :
                 entry = read_unsigned_long(buff)
@@ -280,9 +279,8 @@ class RdbParser :
                 entry = read_unsigned_short(buff)
             else :
                 raise Exception('read_intset', 'Invalid encoding %d' % encoding)
-            entries.append(entry)
-        
-        return entries
+            self._callback.sadd(self._key, entry)
+        self._callback.end_list(self._key)
 
     def read_ziplist(self, f) :
         raw_string = self.read_string(f)

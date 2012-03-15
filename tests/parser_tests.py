@@ -76,11 +76,34 @@ class RedisParserTestCase(unittest.TestCase):
     
     def test_ziplist_with_integers(self):
         r = self.load_rdb('ziplist_with_integers.rdb')
-        self.assert_(63 in r.databases[0]["ziplist_with_integers"])
-        self.assert_(16380 in r.databases[0]["ziplist_with_integers"])
-        self.assert_(65535 in r.databases[0]["ziplist_with_integers"])
-        self.assert_(0x7fffffffffffffff in r.databases[0]["ziplist_with_integers"])
-        
+        self.assertEquals(r.lengths[0]["ziplist_with_integers"], 4)
+        for num in (63, 16380, 65535, 0x7fffffffffffffff) :
+            self.assert_(num in r.databases[0]["ziplist_with_integers"])
+
+    def test_linkedlist(self):
+        r = self.load_rdb('linkedlist.rdb')
+        self.assertEquals(r.lengths[0]["force_linkedlist"], 1000)
+        self.assert_("JYY4GIFI0ETHKP4VAJF5333082J4R1UPNPLE329YT0EYPGHSJQ" in r.databases[0]["force_linkedlist"])
+        self.assert_("TKBXHJOX9Q99ICF4V78XTCA2Y1UYW6ERL35JCIL1O0KSGXS58S" in r.databases[0]["force_linkedlist"])
+
+    def test_intset_16(self):
+        r = self.load_rdb('intset_16.rdb')
+        self.assertEquals(r.lengths[0]["intset_16"], 3)
+        for num in (0x7ffe, 0x7ffd, 0x7ffc) :
+            self.assert_(num in r.databases[0]["intset_16"])
+
+    def test_intset_32(self):
+        r = self.load_rdb('intset_32.rdb')
+        self.assertEquals(r.lengths[0]["intset_32"], 3)
+        for num in (0x7ffefffe, 0x7ffefffd, 0x7ffefffc) :
+            self.assert_(num in r.databases[0]["intset_32"])
+
+    def test_intset_64(self):
+        r = self.load_rdb('intset_64.rdb')
+        self.assertEquals(r.lengths[0]["intset_64"], 3)
+        for num in (0x7ffefffefffefffe, 0x7ffefffefffefffd, 0x7ffefffefffefffc) :
+            self.assert_(num in r.databases[0]["intset_64"])
+    
 class MockRedis(RdbCallback):
     def __init__(self) :
         self.databases = {}
@@ -147,12 +170,12 @@ class MockRedis(RdbCallback):
             self.currentdb()[key] = []
         if expiry :
             self.store_expiry(key, expiry)
-        self.store_length(key, length)
+        self.store_length(key, cardinality)
 
     def sadd(self, key, member):
         if not key in self.currentdb() :
             raise Exception('start_set not called for key = %s', key)
-        self.currentdb()[key].append(value)
+        self.currentdb()[key].append(member)
     
     def end_set(self, key):
         if not key in self.currentdb() :
