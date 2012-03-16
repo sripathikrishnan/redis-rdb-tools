@@ -90,22 +90,22 @@ def dictionary() :
 
 def ziplist_that_compresses_easily() :
     for length in (6, 12, 18, 24, 30, 36) :
-        r.lpush("ziplist_compresses_easily", ("".join("a" for x in xrange(length))))
+        r.rpush("ziplist_compresses_easily", ("".join("a" for x in xrange(length))))
     
 def ziplist_that_doesnt_compress() :
-    r.lpush("ziplist_doesnt_compress", "aj2410")
-    r.lpush("ziplist_doesnt_compress", "cc953a17a8e096e76a44169ad3f9ac87c5f8248a403274416179aa9fbd852344")
+    r.rpush("ziplist_doesnt_compress", "aj2410")
+    r.rpush("ziplist_doesnt_compress", "cc953a17a8e096e76a44169ad3f9ac87c5f8248a403274416179aa9fbd852344")
 
 def ziplist_with_integers() :
-    r.lpush("ziplist_with_integers", 63)
-    r.lpush("ziplist_with_integers", 16380)
-    r.lpush("ziplist_with_integers", 65535)
-    r.lpush("ziplist_with_integers", 0x7fffffffffffffff)
+    r.rpush("ziplist_with_integers", 63)
+    r.rpush("ziplist_with_integers", 16380)
+    r.rpush("ziplist_with_integers", 65535)
+    r.rpush("ziplist_with_integers", 0x7fffffffffffffff)
     
 def linkedlist() :
     num_entries = 1000
     for x in xrange(0, num_entries) :
-        r.lpush("force_linkedlist", random_string(50, x))
+        r.rpush("force_linkedlist", random_string(50, x))
 
 def intset_16() :
     r.sadd("intset_16", 0x7ffe)

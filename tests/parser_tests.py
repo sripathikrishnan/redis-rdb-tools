@@ -80,8 +80,8 @@ class RedisParserTestCase(unittest.TestCase):
     def test_ziplist_that_compresses_easily(self):
         r = self.load_rdb('ziplist_that_compresses_easily.rdb')
         self.assertEquals(r.lengths[0]["ziplist_compresses_easily"], 6)
-        for length in (6, 12, 18, 24, 30, 36) :
-            self.assert_(("".join("a" for x in xrange(length))) in r.databases[0]["ziplist_compresses_easily"])
+        for idx, length in enumerate([6, 12, 18, 24, 30, 36]) :
+            self.assertEquals(("".join("a" for x in xrange(length))), r.databases[0]["ziplist_compresses_easily"][idx])
     
     def test_ziplist_that_doesnt_compress(self):
         r = self.load_rdb('ziplist_that_doesnt_compress.rdb')
