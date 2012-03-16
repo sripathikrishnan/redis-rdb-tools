@@ -1,8 +1,37 @@
-*Work In Progress*
+rdb-tools is a parser for Redis *.rdb files. 
 
-Tools to convert Redis' RDB file to other formats such as JSON, or to other database formats such as a SQL script. 
+The API is similar to a XML SAX parser. You create a callback to receive events, 
+and then pass your callback to the parser. 
 
-Right now, we have documented the structure of the RDB file. The script rdb2json.py is able to parse about 80% of the RDB; it cannot parse LZF encoded strings at the moment.
+h2. Sample Code
+<pre><code>
+from rdbtools import RdbParser, RdbCallback
 
-create_test_rdb.py inserts data in a local redis database. The intention is to create a small rdb file that has exercises all paths in our code.
+class PrintKeys(RdbCallback) :
+    def set(self, key, value, expiry):
+        print(key)
+
+    def start_hash(self, key, length, expiry):
+        print(key)
+
+    def start_set(self, key, cardinality, expiry):
+        print(key)
+
+    def start_list(self, key, length, expiry):
+        print(key)
+
+    def start_sorted_set(self, key, length, expiry):
+        print(key)
+
+callback = PrintKeys()
+parser = RdbParser(callback)
+parser.parse('/var/redis/6379/dump.rdb')
+</code></pre>
+
+h2. Installing rdbtools
+<pre>
+git checkout git@github.com:sripathikrishnan/redis-rdb-tools.git
+cd redis-rdb-tools
+sudo python setup.py install
+</pre>
 
