@@ -1,2 +1,6 @@
 *.pyc
+build/
+dist/
+rdbtools.egg-info/
+tests/dumps/dump.rdb.backup
 
