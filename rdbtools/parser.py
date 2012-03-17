@@ -370,6 +370,8 @@ class RdbParser :
                 val = self.read_string(f)
                 dbl_length = read_unsigned_char(f)
                 score = f.read(dbl_length)
+                if isinstance(score, str):
+                    score = float(score)
                 self._callback.zadd(self._key, score, val)
             self._callback.end_sorted_set(self._key)
         elif enc_type == REDIS_RDB_TYPE_HASH :
