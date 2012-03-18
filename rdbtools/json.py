@@ -162,9 +162,3 @@ class JSONCallback(RdbCallback):
         self._end_key(key)
         self._out.write('}')
 
-def main():
-    with open('/home/sri/apps/redis-rdb-tools/rdbtools/dump.json', "wb") as f:
-        callback = JSONCallback(f)
-        parser = RdbParser(callback)
-        parser.parse('/var/redis/6379/dump.rdb')
-
