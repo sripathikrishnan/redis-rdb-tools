@@ -423,11 +423,9 @@ class RdbParser :
             if length == REDIS_RDB_ENC_INT8 :
                 val = read_signed_char(f)
             elif length == REDIS_RDB_ENC_INT16 :
-                bytes = bytearray(f.read(2))
-                val = bytes[0] | (bytes[1] << 8)
+                val = read_signed_short(f)
             elif length == REDIS_RDB_ENC_INT32 :
-                bytes = bytearray(f.read(4))
-                val = bytes[0]|(bytes[1]<<8)|(bytes[2]<<16)|(bytes[3]<<24);
+                val = read_signed_int(f)
             elif length == REDIS_RDB_ENC_LZF :
                 clen = self.read_length(f)
                 l = self.read_length(f)
