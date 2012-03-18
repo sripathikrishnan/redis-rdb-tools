@@ -2,7 +2,7 @@
 import os
 import sys
 from optparse import OptionParser
-from rdbtools import RdbParser, JSONCallback
+from rdbtools import RdbParser, JSONCallback, DebugCallback
 
 def main():
     parser = OptionParser()
@@ -28,6 +28,7 @@ def main():
             parser.parse(dump_file)
     else:
         callback = JSONCallback(sys.stdout)
+        #callback = DebugCallback()
         parser = RdbParser(callback)
         parser.parse(dump_file)
     

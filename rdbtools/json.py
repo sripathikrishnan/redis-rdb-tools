@@ -40,6 +40,33 @@ def _encode_basestring(s):
         return ESCAPE_DCT[match.group(0)]
     return u'"' + ESCAPE.sub(replace, s) + u'"'
 
+def _encode_basestring_ascii(s):
+    """Return an ASCII-only JSON representation of a Python string
+
+    """
+    try :
+        if isinstance(s, str) and HAS_UTF8.search(s) is not None:
+            s = s.decode('utf-8')
+    except:
+        pass
+
+    def replace(match):
+        s = match.group(0)
+        try:
+            return ESCAPE_DCT[s]
+        except KeyError:
+            n = ord(s)
+            if n < 0x10000:
+                #return '\\u{0:04x}'.format(n)
+                return '\\u%04x' % (n,)
+            else:
+                # surrogate pair
+                n -= 0x10000
+                s1 = 0xd800 | ((n >> 10) & 0x3ff)
+                s2 = 0xdc00 | (n & 0x3ff)
+                return '\\u%04x\\u%04x' % (s1, s2)
+    return '"' + str(ESCAPE_ASCII.sub(replace, s)) + '"'
+
 def _encode(s, quote_numbers = True):
     if quote_numbers:
         qn = '"'
@@ -58,7 +85,7 @@ def _encode(s, quote_numbers = True):
         else:
             return qn + str(s) + qn
     else:
-        return _encode_basestring(s)
+        return _encode_basestring_ascii(s)
 
 def encode_key(s):
     return _encode(s, quote_numbers=True)
