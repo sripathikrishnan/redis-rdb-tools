@@ -1,8 +1,10 @@
+from __future__ import with_statement
 import struct
 import StringIO
 import io
 import sys
 import datetime
+import re
 
 REDIS_RDB_6BITLEN = 0
 REDIS_RDB_14BITLEN = 1
@@ -220,59 +222,6 @@ class RdbCallback:
     def end_rdb(self):
         """Called to indicate we have completed parsing of the dump file"""
         pass
-
-class DebugCallback(RdbCallback) :
-    def start_rdb(self):
-        print('[')
-    
-    def start_database(self, db_number):
-        print('{')
-    
-    def set(self, key, value, expiry):
-        print('"%s" : "%s"' % (str(key), str(value)))
-    
-    def start_hash(self, key, length, expiry):
-        print('"%s" : {' % str(key))
-        pass
-    
-    def hset(self, key, field, value):
-        print('"%s" : "%s"' % (str(field), str(value)))
-    
-    def end_hash(self, key):
-        print('}')
-    
-    def start_set(self, key, cardinality, expiry):
-        print('"%s" : [' % str(key))
-
-    def sadd(self, key, member):
-        print('"%s"' % str(member))
-    
-    def end_set(self, key):
-        print(']')
-    
-    def start_list(self, key, length, expiry):
-        print('"%s" : [' % str(key))
-    
-    def rpush(self, key, value) :
-        print('"%s"' % str(value))
-    
-    def end_list(self, key):
-        print(']')
-    
-    def start_sorted_set(self, key, length, expiry):
-        print('"%s" : {' % str(key))
-    
-    def zadd(self, key, score, member):
-        print('"%s" : "%s"' % (str(member), str(score)))
-    
-    def end_sorted_set(self, key):
-        print('}')
-    
-    def end_database(self, db_number):
-        print('}')
-    
-    def end_rdb(self):
-        print(']')
 
 class RdbParser :
     """
@@ -639,4 +588,59 @@ def string_as_hexcode(string) :
             print(hex(s))
         else :
             print(hex(ord(s)))
+
+
+class DebugCallback(RdbCallback) :
+    def start_rdb(self):
+        print('[')
+    
+    def start_database(self, db_number):
+        print('{')
+    
+    def set(self, key, value, expiry):
+        print('"%s" : "%s"' % (str(key), str(value)))
+    
+    def start_hash(self, key, length, expiry):
+        print('"%s" : {' % str(key))
+        pass
+    
+    def hset(self, key, field, value):
+        print('"%s" : "%s"' % (str(field), str(value)))
+    
+    def end_hash(self, key):
+        print('}')
+    
+    def start_set(self, key, cardinality, expiry):
+        print('"%s" : [' % str(key))
+
+    def sadd(self, key, member):
+        print('"%s"' % str(member))
+    
+    def end_set(self, key):
+        print(']')
+    
+    def start_list(self, key, length, expiry):
+        print('"%s" : [' % str(key))
+    
+    def rpush(self, key, value) :
+        print('"%s"' % str(value))
+    
+    def end_list(self, key):
+        print(']')
+    
+    def start_sorted_set(self, key, length, expiry):
+        print('"%s" : {' % str(key))
+    
+    def zadd(self, key, score, member):
+        print('"%s" : "%s"' % (str(member), str(score)))
+    
+    def end_sorted_set(self, key):
+        print('}')
+    
+    def end_database(self, db_number):
+        print('}')
+    
+    def end_rdb(self):
+        print(']')
+
 

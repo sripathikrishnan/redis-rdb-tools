@@ -72,7 +72,6 @@ def _encode(s, quote_numbers = True):
         qn = '"'
     else:
         qn = ''
-
     if isinstance(s, int):
         return qn + str(s) + qn
     elif isinstance(s, float):
