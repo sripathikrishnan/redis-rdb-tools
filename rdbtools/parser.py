@@ -1,11 +1,14 @@
-from __future__ import with_statement
 import struct
-import StringIO
 import io
 import sys
 import datetime
 import re
 
+try :
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
+    
 REDIS_RDB_6BITLEN = 0
 REDIS_RDB_14BITLEN = 1
 REDIS_RDB_32BITLEN = 2
@@ -284,6 +287,47 @@ class RdbParser :
                 self._key = self.read_string(f)
                 self.read_object(f, data_type)
 
+    def read_length_with_encoding(self, f) :
+        length = 0
+        is_encoded = False
+        bytes = []
+        bytes.append(read_unsigned_char(f))
+        enc_type = (bytes[0] & 0xC0) >> 6
+        if enc_type == REDIS_RDB_ENCVAL :
+            is_encoded = True
+            length = bytes[0] & 0x3F
+        elif enc_type == REDIS_RDB_6BITLEN :
+            length = bytes[0] & 0x3F
+        elif enc_type == REDIS_RDB_14BITLEN :
+            bytes.append(read_unsigned_char(f))
+            length = ((bytes[0]&0x3F)<<8)|bytes[1]
+        else :
+            length = ntohl(f)
+        return (length, is_encoded)
+
+    def read_length(self, f) :
+        return self.read_length_with_encoding(f)[0]
+
+    def read_string(self, f) :
+        tup = self.read_length_with_encoding(f)
+        length = tup[0]
+        is_encoded = tup[1]
+        val = None
+        if is_encoded :
+            if length == REDIS_RDB_ENC_INT8 :
+                val = read_signed_char(f)
+            elif length == REDIS_RDB_ENC_INT16 :
+                val = read_signed_short(f)
+            elif length == REDIS_RDB_ENC_INT32 :
+                val = read_signed_int(f)
+            elif length == REDIS_RDB_ENC_LZF :
+                clen = self.read_length(f)
+                l = self.read_length(f)
+                val = lzf_decompress(f.read(clen), l)
+        else :
+            val = f.read(length)
+        return val
+
     # Read an object for the stream
     # f is the redis file 
     # enc_type is the type of object
@@ -342,50 +386,10 @@ class RdbParser :
         else :
             raise Exception('read_object', 'Invalid object type %d' % enc_type)
 
-    def read_length(self, f) :
-        return self.read_length_with_encoding(f)[0]
-
-    def read_length_with_encoding(self, f) :
-        length = 0
-        is_encoded = False
-        bytes = []
-        bytes.append(read_unsigned_char(f))
-        enc_type = (bytes[0] & 0xC0) >> 6
-        if enc_type == REDIS_RDB_ENCVAL :
-            is_encoded = True
-            length = bytes[0] & 0x3F
-        elif enc_type == REDIS_RDB_6BITLEN :
-            length = bytes[0] & 0x3F
-        elif enc_type == REDIS_RDB_14BITLEN :
-            bytes.append(read_unsigned_char(f))
-            length = ((bytes[0]&0x3F)<<8)|bytes[1]
-        else :
-            length = ntohl(f)
-        return (length, is_encoded)
-
-    def read_string(self, f) :
-        tup = self.read_length_with_encoding(f)
-        length = tup[0]
-        is_encoded = tup[1]
-        val = None
-        if is_encoded :
-            if length == REDIS_RDB_ENC_INT8 :
-                val = read_signed_char(f)
-            elif length == REDIS_RDB_ENC_INT16 :
-                val = read_signed_short(f)
-            elif length == REDIS_RDB_ENC_INT32 :
-                val = read_signed_int(f)
-            elif length == REDIS_RDB_ENC_LZF :
-                clen = self.read_length(f)
-                l = self.read_length(f)
-                val = lzf_decompress(f.read(clen), l)
-        else :
-            val = f.read(length)
-        return val
 
     def read_intset(self, f) :
         raw_string = self.read_string(f)
-        buff = StringIO.StringIO(raw_string)
+        buff = StringIO(raw_string)
         encoding = read_unsigned_int(buff)
         num_entries = read_unsigned_int(buff)
         self._callback.start_set(self._key, num_entries, self._expiry)
@@ -403,7 +407,7 @@ class RdbParser :
 
     def read_ziplist(self, f) :
         raw_string = self.read_string(f)
-        buff = StringIO.StringIO(raw_string)
+        buff = StringIO(raw_string)
         zlbytes = read_unsigned_int(buff)
         tail_offset = read_unsigned_int(buff)
         num_entries = read_unsigned_short(buff)
@@ -418,7 +422,7 @@ class RdbParser :
 
     def read_zset_from_ziplist(self, f) :
         raw_string = self.read_string(f)
-        buff = StringIO.StringIO(raw_string)
+        buff = StringIO(raw_string)
         zlbytes = read_unsigned_int(buff)
         tail_offset = read_unsigned_int(buff)
         num_entries = read_unsigned_short(buff)
