@@ -34,6 +34,9 @@ REDIS_RDB_ENC_INT16 = 1
 REDIS_RDB_ENC_INT32 = 2
 REDIS_RDB_ENC_LZF = 3
 
+DATA_TYPE_MAPPING = {
+    0 : "string", 1 : "list", 2 : "set", 3 : "sortedset", 4 : "hash", 9 : "hash", 10 : "list", 11 : "set", 12 : "sortedset"}
+
 class RdbCallback:
     """
     A Callback to handle events as the Redis dump file is parsed.
@@ -239,14 +242,20 @@ class RdbParser :
         parser = RdbParser(callback)
         parser.parse('/var/redis/6379/dump.rdb')
     
+    filter is a dictionary with the following keys
+        {"dbs" : [0, 1], "keys" : "foo.*", "types" : ["hash", "set", "sortedset", "list", "string"]}
+        
+        If filter is None, results will not be filtered
+        If dbs, keys or types is None or Empty, no filtering will be done on that axis
     """
-    def __init__(self, callback) :
+    def __init__(self, callback, filters = None) :
         """
             `callback` is the object that will receive parse events
         """
         self._callback = callback
         self._key = None
         self._expiry = None
+        self.init_filter(filters)
 
     def parse(self, filename):
         """
@@ -283,9 +292,15 @@ class RdbParser :
                     self._callback.end_database(db_number)
                     self._callback.end_rdb()
                     break
-                
-                self._key = self.read_string(f)
-                self.read_object(f, data_type)
+
+                if self.matches_filter(db_number) :
+                    self._key = self.read_string(f)
+                    if self.matches_filter(db_number, self._key, data_type):
+                        self.read_object(f, data_type)
+                    else:
+                        self.skip_object(f, data_type)
+                else :
+                    self.skip_key_and_object(f, data_type)
 
     def read_length_with_encoding(self, f) :
         length = 0
@@ -385,6 +400,56 @@ class RdbParser :
             self.read_zset_from_ziplist(f)
         else :
             raise Exception('read_object', 'Invalid object type %d' % enc_type)
+
+    def skip_key_and_object(self, f, data_type):
+        self.skip_string(f)
+        self.skip_object(f, data_type)
+
+    def skip_string(self, f):
+        tup = self.read_length_with_encoding(f)
+        length = tup[0]
+        is_encoded = tup[1]
+        bytes_to_skip = 0
+        if is_encoded :
+            if length == REDIS_RDB_ENC_INT8 :
+                bytes_to_skip = 1
+            elif length == REDIS_RDB_ENC_INT16 :
+                bytes_to_skip = 2
+            elif length == REDIS_RDB_ENC_INT32 :
+                bytes_to_skip = 4
+            elif length == REDIS_RDB_ENC_LZF :
+                clen = self.read_length(f)
+                l = self.read_length(f)
+                bytes_to_skip = clen
+        else :
+            bytes_to_skip = length
+        
+        skip(f, bytes_to_skip)
+
+    def skip_object(self, f, enc_type):
+        skip_strings = 0
+        if enc_type == REDIS_RDB_TYPE_STRING :
+            skip_strings = 1
+        elif enc_type == REDIS_RDB_TYPE_LIST :
+            skip_strings = self.read_length(f)
+        elif enc_type == REDIS_RDB_TYPE_SET :
+            skip_strings = self.read_length(f)
+        elif enc_type == REDIS_RDB_TYPE_ZSET :
+            skip_strings = self.read_length(f) * 2
+        elif enc_type == REDIS_RDB_TYPE_HASH :
+            skip_strings = self.read_length(f) * 2
+        elif enc_type == REDIS_RDB_TYPE_HASH_ZIPMAP :
+            skip_strings = 1
+        elif enc_type == REDIS_RDB_TYPE_LIST_ZIPLIST :
+            skip_strings = 1
+        elif enc_type == REDIS_RDB_TYPE_SET_INTSET :
+            skip_strings = 1
+        elif enc_type == REDIS_RDB_TYPE_ZSET_ZIPLIST :
+            skip_strings = 1
+        else :
+            raise Exception('read_object', 'Invalid object type %d' % enc_type)
+        for x in xrange(0, skip_strings):
+            self.skip_string(f)
 
 
     def read_intset(self, f) :
@@ -507,6 +572,47 @@ class RdbParser :
         if version < 1 or version > 3 : 
             raise Exception('verify_version', 'Invalid RDB version number %d' % version)
 
+    def init_filter(self, filters):
+        self._filters = {}
+        if not filters:
+            filters={}
+
+        if not 'dbs' in filters:
+            self._filters['dbs'] = None
+        elif isinstance(filters['dbs'], int):
+            self._filters['dbs'] = (filters['dbs'], )
+        elif isinstance(filters['dbs'], list):
+            self._filters['dbs'] = [int(x) for x in filters['dbs']]
+        else:
+            raise Exception('init_filter', 'invalid value for dbs in filter %s' %filters['dbs'])
+        
+        if not ('keys' in filters and filters['keys']):
+            self._filters['keys'] = re.compile(".*")
+        else:
+            self._filters['keys'] = re.compile(filters['keys'])
+
+        if not 'types' in filters:
+            self._filters['types'] = ('set', 'hash', 'sortedset', 'string', 'list')
+        elif isinstance(filters['types'], str):
+            self._filters['types'] = (filters['types'], )
+        elif isinstance(filters['types'], list):
+            self._filters['types'] = [str(x) for x in filters['types']]
+        else:
+            raise Exception('init_filter', 'invalid value for types in filter %s' %filters['types'])
+        
+    def matches_filter(self, db_number, key=None, data_type=None):
+        if self._filters['dbs'] and (not db_number in self._filters['dbs']):
+            return False
+        if key and (not self._filters['keys'].match(str(key))):
+            return False
+
+        if data_type is not None and (not self.get_logical_type(data_type) in self._filters['types']):
+            return False
+        return True
+    
+    def get_logical_type(self, data_type):
+        return DATA_TYPE_MAPPING[data_type]
+        
 
 def skip(f, free):
     if free :

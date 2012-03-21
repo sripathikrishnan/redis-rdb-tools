@@ -10,9 +10,9 @@ class RedisParserTestCase(unittest.TestCase):
     def tearDown(self):
         pass
     
-    def load_rdb(self, file_name) :
+    def load_rdb(self, file_name, filters=None) :
         r = MockRedis()
-        parser = RdbParser(r)
+        parser = RdbParser(r, filters)
         parser.parse(os.path.join(os.path.dirname(__file__), 'dumps', file_name))
         return r
 
@@ -133,6 +133,27 @@ class RedisParserTestCase(unittest.TestCase):
         self.assert_(floateq(zset['8b6ba6718a786daefa69438148361901'], 1))
         self.assert_(floateq(zset['cb7a24bb7528f934b841b34c3a73e0c7'], 2.37))
         self.assert_(floateq(zset['523af537946b79c4f8369ed39ba78605'], 3.423))
+
+    def test_filtering_by_keys(self):
+        r = self.load_rdb('parser_filters.rdb', filters={"keys":"k[0-9]"})
+        self.assertEquals(r.databases[0]['k1'], "ssssssss")
+        self.assertEquals(r.databases[0]['k3'], "wwwwwwww")
+        self.assertEquals(len(r.databases[0]), 2)
+
+    def test_filtering_by_type(self):
+        r = self.load_rdb('parser_filters.rdb', filters={"types":["sortedset"]})
+        self.assert_('z1' in r.databases[0])
+        self.assert_('z2' in r.databases[0])
+        self.assert_('z3' in r.databases[0])
+        self.assert_('z4' in r.databases[0])
+        self.assertEquals(len(r.databases[0]), 4)
+
+    def test_filtering_by_database(self):
+        r = self.load_rdb('multiple_databases.rdb', filters={"dbs":[2]})
+        self.assert_('key_in_zeroth_database' not in r.databases[0])
+        self.assert_('key_in_second_database' in r.databases[2])
+        self.assertEquals(len(r.databases[0]), 0)
+        self.assertEquals(len(r.databases[2]), 1)
 
 
 def floateq(f1, f2) :
@@ -266,4 +287,5 @@ class MockRedis(RdbCallback):
     
     def end_rdb(self):
         self.methods_called.append('end_rdb')
+
 

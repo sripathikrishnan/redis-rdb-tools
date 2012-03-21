@@ -22,14 +22,15 @@ def main():
     
     dump_file = args[0]
     if options.output:
-        with open('/home/sri/apps/redis-rdb-tools/rdbtools/dump.json', "wb") as f:
+        with open(options.output, "wb") as f:
             callback = JSONCallback(f)
             parser = RdbParser(callback)
             parser.parse(dump_file)
     else:
         callback = JSONCallback(sys.stdout)
         #callback = DebugCallback()
-        parser = RdbParser(callback)
+        #parser = RdbParser(callback, {"dbs":[0], "keys":"b.*", "types":["string"]})
+        parser = RdbParser(callback, filter=None)
         parser.parse(dump_file)
     
 if __name__ == '__main__':
