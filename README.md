@@ -16,7 +16,7 @@ RDB Tools is implemented in Python.
     cd redis-rdb-tools
     sudo python setup.py install
 
-## Converting to dump files to JSON ##
+## Converting dump files to JSON ##
 
 Parse the dump file and print the JSON on standard output
 
@@ -73,7 +73,7 @@ To limit the size of the files, you can filter on keys using the --key=regex opt
     parser = RdbParser(callback)
     parser.parse('/var/redis/6379/dump.rdb')
 
-## What can I do with this parser? ## 
+## What can I do with this parser?
 Several things 
 
  1.  Export redis into a relational database like MySQL
