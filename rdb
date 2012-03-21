@@ -4,6 +4,7 @@ import sys
 from optparse import OptionParser
 from rdbtools import RdbParser, JSONCallback, DiffCallback
 
+VALID_TYPES = ("hash", "set", "string", "list", "sortedset")
 def main():
     usage = """usage: %prog [options] /path/to/dump.rdb
 
@@ -43,9 +44,9 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
     
     if options.types:
         filters['types'] = []
-        for x in options.dbs:
+        for x in options.types:
             if not x in VALID_TYPES:
-                raise Exception('Invalid type provided - %s. Expected one of %s' % (x, (",".join(VALID_TYPES))))
+                raise Exception('Invalid type provided - %s. Expected one of %s' % (x, (", ".join(VALID_TYPES))))
             else:
                 filters['types'].append(x)
     
