@@ -6,7 +6,7 @@ The rdb file format is optimized for fast read and writes. Where possible LZF co
 
 Optimizing for fast read/writes means the on-disk format should be as close as possible to the in-memory representation. This is the approach taken by the rdb file. As a consequence, you cannot parse the rdb file without some understanding of Redis' in-memory representation of data structures
 
-h2. High Level Layout of the RDB file
+h2. High Level Algorithm to parse RDB
 
 At a high level, the RDB file has the following structure
 <pre><code>
@@ -16,12 +16,12 @@ At a high level, the RDB file has the following structure
 ----------------------------
 FE 00                       # FE = code that indicates database selector. db number = 00
 ----------------------------# Key-Value pair starts
-FD $length-encoding         # FD indicates "expiry time in seconds". After that, expiry time is read using length encoding
+FD $unsigned int            # FD indicates "expiry time in seconds". After that, expiry time is read as a 4 byte unsigned int
 $value-type                 # 1 byte flag indicating the type of value - set, map, sorted set etc.
 $string-encoded-key         # The key, encoded as a redis string
 $encoded-value              # The value. Encoding depends on $value-type
 ----------------------------
-FC $length-encoding         # FC indicates "expiry time in ms". After that, expiry time is read using length encoding
+FC $unsigned long           # FC indicates "expiry time in ms". After that, expiry time is read as a 8 byte unsigned long
 $value-type                 # 1 byte flag indicating the type of value - set, map, sorted set etc.
 $string-encoded-key         # The key, encoded as a redis string
 $encoded-value              # The value. Encoding depends on $value-type
@@ -45,7 +45,7 @@ The file starts off with the magic string "REDIS". This is a quick sanity check 
 
 h3. RDB Version Number
 
-The next 4 bytes are read as a 32 bit integer in big endian This integer represents the version number of the RDB file. Programs parsing should fail-fast if it does not understand a particular version of the RDB file.
+The next 4 bytes store the version number of the rdb format. The 4 bytes are interpreted as ascii characters and then converted to an integer using string to integer conversion.
 
 @00 00 00 03 # Version = 3@
 
@@ -69,7 +69,7 @@ h4. Key Expiry Timestamp
 
 This section starts with a one byte flag. A value of @FD@ indicates expiry is specified in seconds. A value of @FC@ indicates expiry in specified in millseconds.
 
-After this flag, the stream contains a number in a special "length encoding". This number is a unix time stamp in either seconds or milliseconds precision, and represents the expiry of this key.
+If time is specified in ms, the next 8 bytes represent the unix time  This number is a unix time stamp in either seconds or milliseconds precision, and represents the expiry of this key.
 
 See the section "Redis Length Encoding" on how this number is encoded.
 
