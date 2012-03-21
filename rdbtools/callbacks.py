@@ -188,3 +188,73 @@ class JSONCallback(RdbCallback):
         self._end_key(key)
         self._out.write('}')
 
+
+class DiffCallback(RdbCallback):
+    '''Prints the contents of RDB in a format that is unix sort friendly, 
+        so that two rdb files can be diffed easily'''
+    def __init__(self, out):
+        self._out = out
+        self._index = 0
+        self._dbnum = 0
+        
+    def start_rdb(self):
+        pass
+    
+    def start_database(self, db_number):
+        self._dbnum = db_number
+
+    def end_database(self, db_number):
+        pass
+        
+    def end_rdb(self):
+        pass
+       
+    def set(self, key, value, expiry):
+        self._out.write('db=%d %s -> %s' % (self._dbnum, encode_key(key), encode_value(value)))
+        self.newline()
+    
+    def start_hash(self, key, length, expiry):
+        pass
+    
+    def hset(self, key, field, value):
+        self._out.write('db=%d %s . %s -> %s' % (self._dbnum, encode_key(key), encode_key(field), encode_value(value)))
+        self.newline()
+    
+    def end_hash(self, key):
+        pass
+    
+    def start_set(self, key, cardinality, expiry):
+        pass
+
+    def sadd(self, key, member):
+        self._out.write('db=%d %s { %s }' % (self._dbnum, encode_key(key), encode_value(member)))
+        self.newline()
+    
+    def end_set(self, key):
+        pass
+    
+    def start_list(self, key, length, expiry):
+        self._index = 0
+            
+    def rpush(self, key, value) :
+        self._out.write('db=%d %s[%d] -> %s' % (self._dbnum, encode_key(key), self._index, encode_value(value)))
+        self.newline()
+        self._index = self._index + 1
+    
+    def end_list(self, key):
+        pass
+    
+    def start_sorted_set(self, key, length, expiry):
+        self._index = 0
+    
+    def zadd(self, key, score, member):
+        self._out.write('db=%d %s[%d] -> {%s, score=%s}' % (self._dbnum, encode_key(key), self._index, encode_key(member), encode_value(score)))
+        self.newline()
+        self._index = self._index + 1
+    
+    def end_sorted_set(self, key):
+        pass
+
+    def newline(self):
+        self._out.write('\r\n')
+        

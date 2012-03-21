@@ -2,12 +2,17 @@
 import os
 import sys
 from optparse import OptionParser
-from rdbtools import RdbParser, JSONCallback, DebugCallback
+from rdbtools import RdbParser, JSONCallback, DiffCallback
 
 def main():
-    parser = OptionParser()
-    
-    usage = "usage: %prog [options] /path/to/dump.rdb"
+    usage = """usage: %prog [options] /path/to/dump.rdb
+
+Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
+
+    parser = OptionParser(usage=usage)
+    parser.add_option("-c", "--command", dest="command",
+                  help="Command to execute. Valid commands are json or diff", metavar="FILE")
+                  
     parser.add_option("-f", "--file", dest="output",
                   help="Output file", metavar="FILE")
     parser.add_option("-n", "--db", dest="dbs", action="append",
@@ -44,13 +49,21 @@ def main():
             else:
                 filters['types'].append(x)
     
+    # TODO : Fix this ugly if-else code
     if options.output:
         with open(options.output, "wb") as f:
-            callback = JSONCallback(f)
+            if 'diff' == options.command:
+                callback = DiffCallback(f)
+            else:
+                callback = JSONCallback(f)
             parser = RdbParser(callback)
             parser.parse(dump_file)
     else:
-        callback = JSONCallback(sys.stdout)
+        if 'diff' == options.command:
+            callback = DiffCallback(sys.stdout)
+        else:
+            callback = JSONCallback(sys.stdout)
+
         parser = RdbParser(callback, filters=filters)
         parser.parse(dump_file)
     

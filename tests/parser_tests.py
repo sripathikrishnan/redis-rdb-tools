@@ -1,7 +1,7 @@
 import unittest
 import os
 import math
-from rdbtools.parser import RdbCallback, RdbParser
+from rdbtools import RdbCallback, RdbParser
 
 class RedisParserTestCase(unittest.TestCase):
     def setUp(self):
