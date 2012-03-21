@@ -1,11 +1,12 @@
-# Tools to inspect Redis's dump.rdb file
+# Tools to inspect Redis's dump.rdb file #
 
 RDB Tools is a set of tools to work with Redis dump files
 
 rdb-tools lets you : 
-1. Convert dump files into JSON
-2. Compare two dump files using standard diff tools
-3. Efficiently parse and process rdb files
+ 
+ 1.  Convert dump files into JSON
+ 2.  Compare two dump files using standard diff tools
+ 3.  Efficiently parse and process rdb files
 
 RDB Tools is implemented in Python. 
 
@@ -41,7 +42,7 @@ Then, run your favourite diff program
 
     kdiff3 dump1.txt dump2.txt
 
-To limit the size of the files, you can filter on keys using the --key=<regex> flag    
+To limit the size of the files, you can filter on keys using the --key=regex option
 
 ## Using the Parser ##
 
@@ -72,10 +73,11 @@ To limit the size of the files, you can filter on keys using the --key=<regex> f
     parser = RdbParser(callback)
     parser.parse('/var/redis/6379/dump.rdb')
 
-## What can I do with this parser?## 
+## What can I do with this parser? ## 
 Several things 
-1. Export redis into a relational database like MySQL
-2. Export redis into a full text search engine like lucene/solr, so that you can do (almost) real time searches
-3. Merge or split dump files. This is useful if you using several instances of Redis and shard your data
-4. Build a UI/Explorer for the data in Redis
+
+ 1.  Export redis into a relational database like MySQL
+ 2.  Export redis into a full text search engine like lucene/solr, so that you can do (almost) real time searches
+ 3.  Merge or split dump files. This is useful if you using several instances of Redis and shard your data
+ 4.  Build a UI/Explorer for the data in Redis
 
