@@ -479,7 +479,7 @@ class RdbParser :
             else :
                 raise Exception('read_intset', 'Invalid encoding %d' % encoding)
             self._callback.sadd(self._key, entry)
-        self._callback.end_list(self._key)
+        self._callback.end_set(self._key)
 
     def read_ziplist(self, f) :
         raw_string = self.read_string(f)

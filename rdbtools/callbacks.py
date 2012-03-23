@@ -291,7 +291,7 @@ class MemoryCallback(RdbCallback):
     def set(self, key, value, expiry, info):
         self._current_encoding = info['encoding']
         size = self.sizeof_string(key) + self.sizeof_string(value) + self.hashtable_entry_overhead()
-        self._out.write('"%d", "%s", %s, "%d"' % (self._dbnum, "string", encode_key(key), size))
+        self._out.write('%d, %s, %s, %d, %s' % (self._dbnum, "string", encode_key(key), size, self._current_encoding))
         self.end_key()
     
     def start_hash(self, key, length, expiry, info):
@@ -313,7 +313,7 @@ class MemoryCallback(RdbCallback):
             self._current_size += self.hashtable_entry_overhead()
     
     def end_hash(self, key):
-        self._out.write('"%d", "%s", %s, "%d"' % (self._dbnum, self._current_encoding, encode_key(key), self._current_size))
+        self._out.write('%d, %s, %s, %d, %s' % (self._dbnum, "hash", encode_key(key), self._current_size, self._current_encoding))
         self.end_key()
     
     def start_set(self, key, cardinality, expiry, info):
@@ -326,8 +326,8 @@ class MemoryCallback(RdbCallback):
             self._current_size += self.hashtable_entry_overhead()
     
     def end_set(self, key):
-        # A set is like a hashmap
-        self.end_hash(key)
+        self._out.write('%d, %s, %s, %d, %s' % (self._dbnum, "set", encode_key(key), self._current_size, self._current_encoding))
+        self.end_key()
     
     def start_list(self, key, length, expiry, info):
         self._current_encoding = info['encoding']
@@ -347,7 +347,7 @@ class MemoryCallback(RdbCallback):
             self._current_size += self.linkedlist_entry_overhead()
     
     def end_list(self, key):
-        self._out.write('"%d", "%s", %s, "%d"' % (self._dbnum, self._current_encoding, encode_key(key), self._current_size))
+        self._out.write('%d, %s, %s, %d, %s' % (self._dbnum, "list", encode_key(key), self._current_size, self._current_encoding))
         self.end_key()
     
     def start_sorted_set(self, key, length, expiry, info):
@@ -368,7 +368,7 @@ class MemoryCallback(RdbCallback):
             self._current_size += self.skiplist_entry_overhead()
     
     def end_sorted_set(self, key):
-        self._out.write('"%d", "%s", %s, "%d"' % (self._dbnum, self._current_encoding, encode_key(key), self._current_size))
+        self._out.write('%d, %s, %s, %d, %s' % (self._dbnum, "sortedset", encode_key(key), self._current_size, self._current_encoding, ))
         self.end_key()
         
     def end_key(self):
