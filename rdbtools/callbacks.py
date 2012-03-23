@@ -364,7 +364,8 @@ class MemoryCallback(RdbCallback):
     
     def zadd(self, key, score, member):
         if self._current_encoding == 'skiplist':
-            self._current_size += self.sizeof_string(value)
+            self._current_size += 8 # self.sizeof_string(score)
+            self._current_size += self.sizeof_string(member)
             self._current_size += self.skiplist_entry_overhead()
     
     def end_sorted_set(self, key):
