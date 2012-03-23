@@ -43,6 +43,7 @@ Memory usage includes the key, the value and any other overheads.
 
 Note that the memory usage is approximate. In general, the actual memory used will be slightly higher than what is reported.
 
+You can filter the report on keys or database number or data type.
 
 ## Comparing RDB files ##
 
