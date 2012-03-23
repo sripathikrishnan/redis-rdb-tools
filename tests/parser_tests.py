@@ -199,12 +199,12 @@ class MockRedis(RdbCallback):
         self.expiry[dbnum] = {}
         self.lengths[dbnum] = {}
     
-    def set(self, key, value, expiry):
+    def set(self, key, value, expiry, info):
         self.currentdb()[key] = value
         if expiry :
             self.store_expiry(key, expiry)
     
-    def start_hash(self, key, length, expiry):
+    def start_hash(self, key, length, expiry, info):
         if key in self.currentdb() :
             raise Exception('start_hash called with key %s that already exists' % key)
         else :
@@ -225,7 +225,7 @@ class MockRedis(RdbCallback):
             raise Exception('Lengths mismatch on hash %s, expected length = %d, actual = %d'
                                  % (key, self.lengths[self.dbnum][key], len(currentdb()[key])))
     
-    def start_set(self, key, cardinality, expiry):
+    def start_set(self, key, cardinality, expiry, info):
         if key in self.currentdb() :
             raise Exception('start_set called with key %s that already exists' % key)
         else :
@@ -246,7 +246,7 @@ class MockRedis(RdbCallback):
             raise Exception('Lengths mismatch on set %s, expected length = %d, actual = %d'
                                  % (key, self.lengths[self.dbnum][key], len(currentdb()[key])))
 
-    def start_list(self, key, length, expiry):
+    def start_list(self, key, length, expiry, info):
         if key in self.currentdb() :
             raise Exception('start_list called with key %s that already exists' % key)
         else :
@@ -267,7 +267,7 @@ class MockRedis(RdbCallback):
             raise Exception('Lengths mismatch on list %s, expected length = %d, actual = %d'
                                  % (key, self.lengths[self.dbnum][key], len(currentdb()[key])))
 
-    def start_sorted_set(self, key, length, expiry):
+    def start_sorted_set(self, key, length, expiry, info):
         if key in self.currentdb() :
             raise Exception('start_sorted_set called with key %s that already exists' % key)
         else :

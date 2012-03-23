@@ -64,23 +64,25 @@ class RdbCallback:
         """     
         pass
     
-    def set(self, key, value, expiry):
+    def set(self, key, value, expiry, info):
         """
         Callback to handle a key with a string value and an optional expiry
         
         `key` is the redis key
         `value` is a string or a number
         `expiry` is a datetime object. None and can be None
+        `info` is a dictionary containing additional information about this object.
         
         """
         pass
     
-    def start_hash(self, key, length, expiry):
+    def start_hash(self, key, length, expiry, info):
         """Callback to handle the start of a hash
         
         `key` is the redis key
         `length` is the number of elements in this hash. 
         `expiry` is a `datetime` object. None means the object does not expire
+        `info` is a dictionary containing additional information about this object.
         
         After `start_hash`, the method `hset` will be called with this `key` exactly `length` times.
         After that, the `end_hash` method will be called.
@@ -108,13 +110,14 @@ class RdbCallback:
         """
         pass
     
-    def start_set(self, key, cardinality, expiry):
+    def start_set(self, key, cardinality, expiry, info):
         """
         Callback to handle the start of a hash
         
         `key` is the redis key
         `cardinality` is the number of elements in this set
         `expiry` is a `datetime` object. None means the object does not expire
+        `info` is a dictionary containing additional information about this object.
         
         After `start_set`, the  method `sadd` will be called with `key` exactly `cardinality` times
         After that, the `end_set` method will be called to indicate the end of the set.
@@ -143,13 +146,14 @@ class RdbCallback:
         """
         pass
     
-    def start_list(self, key, length, expiry):
+    def start_list(self, key, length, expiry, info):
         """
         Callback to handle the start of a list
         
         `key` is the redis key for this list
         `length` is the number of elements in this list
         `expiry` is a `datetime` object. None means the object does not expire
+        `info` is a dictionary containing additional information about this object.
         
         After `start_list`, the method `rpush` will be called with `key` exactly `length` times
         After that, the `end_list` method will be called to indicate the end of the list
@@ -180,13 +184,14 @@ class RdbCallback:
         """
         pass
     
-    def start_sorted_set(self, key, length, expiry):
+    def start_sorted_set(self, key, length, expiry, info):
         """
         Callback to handle the start of a sorted set
         
         `key` is the redis key for this sorted
         `length` is the number of elements in this sorted set
         `expiry` is a `datetime` object. None means the object does not expire
+        `info` is a dictionary containing additional information about this object.
         
         After `start_sorted_set`, the method `zadd` will be called with `key` exactly `length` times. 
         Also, `zadd` will be called in a sorted order, so as to preserve the ordering of this sorted set.
@@ -351,14 +356,14 @@ class RdbParser :
     def read_object(self, f, enc_type) :
         if enc_type == REDIS_RDB_TYPE_STRING :
             val = self.read_string(f)
-            self._callback.set(self._key, val, self._expiry)
+            self._callback.set(self._key, val, self._expiry, info={'encoding':'string'})
         elif enc_type == REDIS_RDB_TYPE_LIST :
             # A redis list is just a sequence of strings
             # We successively read strings from the stream and create a list from it
             # The lists are in order i.e. the first string is the head, 
             # and the last string is the tail of the list
             length = self.read_length(f)
-            self._callback.start_list(self._key, length, self._expiry)
+            self._callback.start_list(self._key, length, self._expiry, info={'encoding':'linkedlist' })
             for count in xrange(0, length) :
                 val = self.read_string(f)
                 self._callback.rpush(self._key, val)
@@ -368,14 +373,14 @@ class RdbParser :
             # We successively read strings from the stream and create a set from it
             # Note that the order of strings is non-deterministic
             length = self.read_length(f)
-            self._callback.start_set(self._key, length, self._expiry)
+            self._callback.start_set(self._key, length, self._expiry, info={'encoding':'hashtable'})
             for count in xrange(0, length) :
                 val = self.read_string(f)
                 self._callback.sadd(self._key, val)
             self._callback.end_set(self._key)
         elif enc_type == REDIS_RDB_TYPE_ZSET :
             length = self.read_length(f)
-            self._callback.start_sorted_set(self._key, length, self._expiry)
+            self._callback.start_sorted_set(self._key, length, self._expiry, info={'encoding':'skiplist'})
             for count in xrange(0, length) :
                 val = self.read_string(f)
                 dbl_length = read_unsigned_char(f)
@@ -386,7 +391,7 @@ class RdbParser :
             self._callback.end_sorted_set(self._key)
         elif enc_type == REDIS_RDB_TYPE_HASH :
             length = self.read_length(f)
-            self._callback.start_hash(self._key, length, self._expiry)
+            self._callback.start_hash(self._key, length, self._expiry, info={'encoding':'hashtable'})
             for count in xrange(0, length) :
                 field = self.read_string(f)
                 value = self.read_string(f)
@@ -463,7 +468,7 @@ class RdbParser :
         buff = StringIO(raw_string)
         encoding = read_unsigned_int(buff)
         num_entries = read_unsigned_int(buff)
-        self._callback.start_set(self._key, num_entries, self._expiry)
+        self._callback.start_set(self._key, num_entries, self._expiry, info={'encoding':'intset', 'sizeof_value':len(raw_string)})
         for x in xrange(0, num_entries) :
             if encoding == 8 :
                 entry = read_unsigned_long(buff)
@@ -482,7 +487,7 @@ class RdbParser :
         zlbytes = read_unsigned_int(buff)
         tail_offset = read_unsigned_int(buff)
         num_entries = read_unsigned_short(buff)
-        self._callback.start_list(self._key, num_entries, self._expiry)
+        self._callback.start_list(self._key, num_entries, self._expiry, info={'encoding':'ziplist', 'sizeof_value':len(raw_string)})
         for x in xrange(0, num_entries) :
             val = self.read_ziplist_entry(buff)
             self._callback.rpush(self._key, val)
@@ -500,7 +505,7 @@ class RdbParser :
         if (num_entries % 2) :
             raise Exception('read_zset_from_ziplist', "Expected even number of elements, but found %d" % num_entries)
         num_entries = num_entries /2
-        self._callback.start_sorted_set(self._key, num_entries, self._expiry)
+        self._callback.start_sorted_set(self._key, num_entries, self._expiry, info={'encoding':'ziplist', 'sizeof_value':len(raw_string)})
         for x in xrange(0, num_entries) :
             member = self.read_ziplist_entry(buff)
             score = self.read_ziplist_entry(buff)
@@ -521,7 +526,7 @@ class RdbParser :
         if (num_entries % 2) :
             raise Exception('read_hash_from_ziplist', "Expected even number of elements, but found %d" % num_entries)
         num_entries = num_entries /2
-        self._callback.start_hash(self._key, num_entries, self._expiry)
+        self._callback.start_hash(self._key, num_entries, self._expiry, info={'encoding':'ziplist', 'sizeof_value':len(raw_string)})
         for x in xrange(0, num_entries) :
             field = self.read_ziplist_entry(buff)
             value = self.read_ziplist_entry(buff)
@@ -563,7 +568,7 @@ class RdbParser :
         buff = io.BytesIO(bytearray(raw_string))
         num_entries = read_unsigned_char(buff)
         
-        self._callback.start_hash(self._key, num_entries, self._expiry)
+        self._callback.start_hash(self._key, num_entries, self._expiry, info={'encoding':'zipmap', 'sizeof_value':len(raw_string)})
         while True :
             next_length = self.read_zipmap_next_length(buff)
             if next_length is None :

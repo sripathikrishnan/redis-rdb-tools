@@ -2,7 +2,7 @@
 import os
 import sys
 from optparse import OptionParser
-from rdbtools import RdbParser, JSONCallback, DiffCallback
+from rdbtools import RdbParser, JSONCallback, DiffCallback, MemoryCallback
 
 VALID_TYPES = ("hash", "set", "string", "list", "sortedset")
 def main():
@@ -55,15 +55,23 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
         with open(options.output, "wb") as f:
             if 'diff' == options.command:
                 callback = DiffCallback(f)
-            else:
+            elif 'json' == options.command:
                 callback = JSONCallback(f)
+            elif 'memory' == options.command:
+                callback = MemoryCallback(f)
+            else:
+                raise Exception('Invalid Command %s' % options.output)
             parser = RdbParser(callback)
             parser.parse(dump_file)
     else:
         if 'diff' == options.command:
             callback = DiffCallback(sys.stdout)
-        else:
+        elif 'json' == options.command:
             callback = JSONCallback(sys.stdout)
+        elif 'memory' == options.command:
+            callback = MemoryCallback(sys.stdout, 64)
+        else:
+            raise Exception('Invalid Command %s' % options.output)
 
         parser = RdbParser(callback, filters=filters)
         parser.parse(dump_file)
