@@ -87,6 +87,7 @@ A one byte flag indicates encoding used to save the Value.
 # 10 = "Ziplist Encoding"
 # 11 = "Intset Encoding"
 # 12 = "Sorted Set in Ziplist Encoding"
+# 13 = "Hashmap in Ziplist Encoding"
 
 h4. Key 
 
@@ -297,4 +298,15 @@ A sorted list in ziplist encoding is stored just like the Ziplist described abov
 ['Manchester City', 1, 'Manchester United', 2, 'Totenham', 3]
 
 As you see, the scores follow each element.
+
+h2. Hashmap in Ziplist Encoding
+In this, key=value pairs of a hashmap are stored as successive entries in a ziplist. 
+
+*Example*
+   {"us" => "washington", "india" => "delhi"} 
+   
+   is stored in a ziplist as :
+   
+   ["us", "washington", "india", "delhi"]
+   
 

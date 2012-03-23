@@ -66,9 +66,16 @@ class RedisParserTestCase(unittest.TestCase):
         
     def test_zipmap_that_doesnt_compress(self):
         r = self.load_rdb('zipmap_that_doesnt_compress.rdb')
-        self.assertEquals(r.databases[0]["zimap_doesnt_compress"]["MKD1G6"], "2")
+        self.assertEquals(r.databases[0]["zimap_doesnt_compress"]["MKD1G6"], 2)
         self.assertEquals(r.databases[0]["zimap_doesnt_compress"]["YNNXK"], "F7TI")
-
+    
+    def test_hash_as_ziplist(self):
+        '''In redis dump version = 4, hashmaps are stored as ziplists'''
+        r = self.load_rdb('hash_as_ziplist.rdb')
+        self.assertEquals(r.databases[0]["zipmap_compresses_easily"]["a"], "aa")
+        self.assertEquals(r.databases[0]["zipmap_compresses_easily"]["aa"], "aaaa")
+        self.assertEquals(r.databases[0]["zipmap_compresses_easily"]["aaaaa"], "aaaaaaaaaaaaaa")
+        
     def test_dictionary(self):
         r = self.load_rdb('dictionary.rdb')
         self.assertEquals(r.lengths[0]["force_dictionary"], 1000)

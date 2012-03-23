@@ -28,6 +28,7 @@ REDIS_RDB_TYPE_HASH_ZIPMAP = 9
 REDIS_RDB_TYPE_LIST_ZIPLIST = 10
 REDIS_RDB_TYPE_SET_INTSET = 11
 REDIS_RDB_TYPE_ZSET_ZIPLIST = 12
+REDIS_RDB_TYPE_HASH_ZIPLIST = 13
 
 REDIS_RDB_ENC_INT8 = 0
 REDIS_RDB_ENC_INT16 = 1
@@ -35,7 +36,8 @@ REDIS_RDB_ENC_INT32 = 2
 REDIS_RDB_ENC_LZF = 3
 
 DATA_TYPE_MAPPING = {
-    0 : "string", 1 : "list", 2 : "set", 3 : "sortedset", 4 : "hash", 9 : "hash", 10 : "list", 11 : "set", 12 : "sortedset"}
+    0 : "string", 1 : "list", 2 : "set", 3 : "sortedset", 4 : "hash", 
+    9 : "hash", 10 : "list", 11 : "set", 12 : "sortedset", 13 : "hash"}
 
 class RdbCallback:
     """
@@ -398,6 +400,8 @@ class RdbParser :
             self.read_intset(f)
         elif enc_type == REDIS_RDB_TYPE_ZSET_ZIPLIST :
             self.read_zset_from_ziplist(f)
+        elif enc_type == REDIS_RDB_TYPE_HASH_ZIPLIST :
+            self.read_hash_from_ziplist(f)
         else :
             raise Exception('read_object', 'Invalid object type %d' % enc_type)
 
@@ -445,6 +449,8 @@ class RdbParser :
         elif enc_type == REDIS_RDB_TYPE_SET_INTSET :
             skip_strings = 1
         elif enc_type == REDIS_RDB_TYPE_ZSET_ZIPLIST :
+            skip_strings = 1
+        elif enc_type == REDIS_RDB_TYPE_HASH_ZIPLIST :
             skip_strings = 1
         else :
             raise Exception('read_object', 'Invalid object type %d' % enc_type)
@@ -503,9 +509,29 @@ class RdbParser :
             self._callback.zadd(self._key, score, member)
         zlist_end = read_unsigned_char(buff)
         if zlist_end != 255 : 
-            raise Exception('read_ziplist', "Invalid zip list end - %d" % zlist_end)
+            raise Exception('read_zset_from_ziplist', "Invalid zip list end - %d" % zlist_end)
         self._callback.end_sorted_set(self._key)
 
+    def read_hash_from_ziplist(self, f) :
+        raw_string = self.read_string(f)
+        buff = StringIO(raw_string)
+        zlbytes = read_unsigned_int(buff)
+        tail_offset = read_unsigned_int(buff)
+        num_entries = read_unsigned_short(buff)
+        if (num_entries % 2) :
+            raise Exception('read_hash_from_ziplist', "Expected even number of elements, but found %d" % num_entries)
+        num_entries = num_entries /2
+        self._callback.start_hash(self._key, num_entries, self._expiry)
+        for x in xrange(0, num_entries) :
+            field = self.read_ziplist_entry(buff)
+            value = self.read_ziplist_entry(buff)
+            self._callback.hset(self._key, field, value)
+        zlist_end = read_unsigned_char(buff)
+        if zlist_end != 255 : 
+            raise Exception('read_hash_from_ziplist', "Invalid zip list end - %d" % zlist_end)
+        self._callback.end_hash(self._key)
+    
+    
     def read_ziplist_entry(self, f) :
         length = 0
         value = None
@@ -548,6 +574,11 @@ class RdbParser :
                 raise Exception('read_zip_map', 'Unexepcted end of zip map')        
             free = read_unsigned_char(buff)
             value = buff.read(next_length)
+            try:
+                value = int(value)
+            except ValueError:
+                pass
+            
             skip(buff, free)
             self._callback.hset(self._key, key, value)
         self._callback.end_hash(self._key)
@@ -569,7 +600,7 @@ class RdbParser :
 
     def verify_version(self, version_str) :
         version = int(version_str)
-        if version < 1 or version > 3 : 
+        if version < 1 or version > 4 : 
             raise Exception('verify_version', 'Invalid RDB version number %d' % version)
 
     def init_filter(self, filters):
