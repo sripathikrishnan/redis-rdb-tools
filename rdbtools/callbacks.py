@@ -290,14 +290,18 @@ class MemoryCallback(RdbCallback):
        
     def set(self, key, value, expiry, info):
         self._current_encoding = info['encoding']
-        size = self.sizeof_string(key) + self.sizeof_string(value) + self.hashtable_entry_overhead()
+        size = self.sizeof_string(key) + self.sizeof_string(value) + self.top_level_object_overhead()
+        size += self.key_expiry_overhead(expiry)
+        
         self._out.write('%d, %s, %s, %d, %s' % (self._dbnum, "string", encode_key(key), size, self._current_encoding))
         self.end_key()
     
     def start_hash(self, key, length, expiry, info):
         self._current_encoding = info['encoding']
         size = self.sizeof_string(key)
-        size += self.hashtable_entry_overhead()
+        size += self.top_level_object_overhead()
+        size += self.key_expiry_overhead(expiry)
+        
         if 'sizeof_value' in info:
             size += info['sizeof_value']
         elif 'encoding' in info and info['encoding'] == 'hashtable':
@@ -332,7 +336,9 @@ class MemoryCallback(RdbCallback):
     def start_list(self, key, length, expiry, info):
         self._current_encoding = info['encoding']
         size = self.sizeof_string(key)
-        size += self.hashtable_entry_overhead()
+        size += self.top_level_object_overhead()
+        size += self.key_expiry_overhead(expiry)
+        
         if 'sizeof_value' in info:
             size += info['sizeof_value']
         elif 'encoding' in info and info['encoding'] == 'linkedlist':
@@ -353,7 +359,9 @@ class MemoryCallback(RdbCallback):
     def start_sorted_set(self, key, length, expiry, info):
         self._current_encoding = info['encoding']
         size = self.sizeof_string(key)
-        size += self.hashtable_entry_overhead()
+        size += self.top_level_object_overhead()
+        size += self.key_expiry_overhead(expiry)
+        
         if 'sizeof_value' in info:
             size += info['sizeof_value']
         elif 'encoding' in info and info['encoding'] == 'skiplist':
@@ -385,6 +393,7 @@ class MemoryCallback(RdbCallback):
         # int len :  4 bytes
         # int free : 4 bytes
         # char buf[] : size will be the length of the string
+        # 1 extra byte is used to store the null character at the end of the string
         # Redis internally stores integers as a long
         #  Integers less than REDIS_SHARED_INTEGERS are stored in a shared memory pool
         try:
@@ -395,8 +404,21 @@ class MemoryCallback(RdbCallback):
                 return 8
         except ValueError:
             pass 
-        return len(string) + 8
-    
+        return len(string) + 8 + 1
+
+    def top_level_object_overhead(self):
+        # Each top level object is an entry in a dictionary, and so we have to include 
+        # the overhead of a dictionary entry
+        return self.hashtable_entry_overhead()
+
+    def key_expiry_overhead(self, expiry):
+        # If there is no expiry, there isn't any overhead
+        if not expiry:
+            return 0
+        # Key expiry is stored in a hashtable, so we have to pay for the cost of a hashtable entry
+        # The timestamp itself is stored as an int64, which is a 8 bytes
+        return self.hashtable_entry_overhead() + 8
+        
     def hashtable_overhead(self, size):
         # See  https://github.com/antirez/redis/blob/unstable/src/dict.h
         # See the structures dict and dictht
