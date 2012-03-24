@@ -5,8 +5,9 @@ RDB Tools is a set of tools to work with Redis dump files
 rdb-tools lets you : 
  
  1.  Convert dump files into JSON
- 2.  Compare two dump files using standard diff tools
- 3.  Efficiently parse and process rdb files
+ 2.  Generate a Memory Report of your data across all databases and keys
+ 3.  Compare two dump files using standard diff tools
+ 4.  Efficiently parse and process rdb files
 
 RDB Tools is implemented in Python. 
 
@@ -30,6 +31,19 @@ Only process hashes starting with "a", in database 2
 
     ./rdb --command json --db 2 --type hash --key "a.*" /var/redis/6379/dump.rdb
 
+
+## Generate Memory Report ##
+Running with the  `-c memory` generates a CSV report with the approximate memory used by that key.
+
+    ./rdb -c memory /var/redis/6379/dump.rdb > memory.csv
+
+
+The generated CSV has the following columns - Database Number, Data Type, Key, Memory Used in bytes and Encoding. 
+Memory usage includes the key, the value and any other overheads.
+
+Note that the memory usage is approximate. In general, the actual memory used will be slightly higher than what is reported.
+
+You can filter the report on keys or database number or data type.
 
 ## Comparing RDB files ##
 
