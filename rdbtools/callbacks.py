@@ -409,7 +409,9 @@ class MemoryCallback(RdbCallback):
     def top_level_object_overhead(self):
         # Each top level object is an entry in a dictionary, and so we have to include 
         # the overhead of a dictionary entry
-        return self.hashtable_entry_overhead()
+        # Each key=value pair is wrapped in a structure robj
+        # The overhead of a robj is 8 bytes + sizeof_pointer
+        return self.hashtable_entry_overhead() + 2 * (self.sizeof_pointer() + 8)
 
     def key_expiry_overhead(self, expiry):
         # If there is no expiry, there isn't any overhead
