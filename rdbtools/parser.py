@@ -567,7 +567,6 @@ class RdbParser :
         raw_string = self.read_string(f)
         buff = io.BytesIO(bytearray(raw_string))
         num_entries = read_unsigned_char(buff)
-        
         self._callback.start_hash(self._key, num_entries, self._expiry, info={'encoding':'zipmap', 'sizeof_value':len(raw_string)})
         while True :
             next_length = self.read_zipmap_next_length(buff)
@@ -590,13 +589,11 @@ class RdbParser :
 
     def read_zipmap_next_length(self, f) :
         num = read_unsigned_char(f)
-        if num <= 252 :
+        if num < 254:
             return num
-        elif num == 253 :
+        elif num == 254:
             return read_unsigned_int(f)
-        elif num == 254 :
-            raise Exception('read_zipmap_next_length', 'Unexpected value in length field - %d' % num)
-        else :
+        else:
             return None
 
     def verify_magic_string(self, magic_string) :

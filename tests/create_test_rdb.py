@@ -19,6 +19,7 @@ def create_test_rdbs(path_to_redis_dump, dump_folder) :
                 easily_compressible_string_key, 
                 zipmap_that_doesnt_compress, 
                 zipmap_that_compresses_easily, 
+                zipmap_with_big_values,
                 dictionary, 
                 ziplist_that_compresses_easily, 
                 ziplist_that_doesnt_compress, 
@@ -83,6 +84,12 @@ def zipmap_that_doesnt_compress() :
     r.hset("zimap_doesnt_compress", "MKD1G6", "2")
     r.hset("zimap_doesnt_compress", "YNNXK", "F7TI")
 
+def zipmap_with_big_values():
+    r.hset("zipmap_with_big_values", "253bytes", random_string(253, 'seed1'))
+    r.hset("zipmap_with_big_values", "254bytes", random_string(254, 'seed2'))
+    r.hset("zipmap_with_big_values", "255bytes", random_string(255, 'seed3'))
+    r.hset("zipmap_with_big_values", "300bytes", random_string(300, 'seed4'))
+    
 def dictionary() :
     num_entries = 1000
     for x in xrange(0, num_entries) :

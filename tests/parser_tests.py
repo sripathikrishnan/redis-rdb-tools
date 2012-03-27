@@ -69,6 +69,17 @@ class RedisParserTestCase(unittest.TestCase):
         self.assertEquals(r.databases[0]["zimap_doesnt_compress"]["MKD1G6"], 2)
         self.assertEquals(r.databases[0]["zimap_doesnt_compress"]["YNNXK"], "F7TI")
     
+    def test_zipmap_with_big_values(self):
+        ''' See issue https://github.com/sripathikrishnan/redis-rdb-tools/issues/2
+            Values with length around 253/254/255 bytes are treated specially in the parser
+            This test exercises those boundary conditions
+        '''
+        r = self.load_rdb('zipmap_with_big_values.rdb')
+        self.assertEquals(len(r.databases[0]["zipmap_with_big_values"]["253bytes"]), 253)
+        self.assertEquals(len(r.databases[0]["zipmap_with_big_values"]["254bytes"]), 254)
+        self.assertEquals(len(r.databases[0]["zipmap_with_big_values"]["255bytes"]), 255)
+        self.assertEquals(len(r.databases[0]["zipmap_with_big_values"]["300bytes"]), 300)
+        
     def test_hash_as_ziplist(self):
         '''In redis dump version = 4, hashmaps are stored as ziplists'''
         r = self.load_rdb('hash_as_ziplist.rdb')
