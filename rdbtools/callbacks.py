@@ -293,7 +293,7 @@ class MemoryCallback(RdbCallback):
         size = self.sizeof_string(key) + self.sizeof_string(value) + self.top_level_object_overhead()
         size += self.key_expiry_overhead(expiry)
         
-        self._out.write('%d, %s, %s, %d, %s' % (self._dbnum, "string", encode_key(key), size, self._current_encoding))
+        self._out.write('%d,%s,%s,%d,%s' % (self._dbnum, "string", encode_key(key), size, self._current_encoding))
         self.end_key()
     
     def start_hash(self, key, length, expiry, info):
@@ -317,7 +317,7 @@ class MemoryCallback(RdbCallback):
             self._current_size += self.hashtable_entry_overhead()
     
     def end_hash(self, key):
-        self._out.write('%d, %s, %s, %d, %s' % (self._dbnum, "hash", encode_key(key), self._current_size, self._current_encoding))
+        self._out.write('%d,%s,%s,%d,%s' % (self._dbnum, "hash", encode_key(key), self._current_size, self._current_encoding))
         self.end_key()
     
     def start_set(self, key, cardinality, expiry, info):
@@ -330,7 +330,7 @@ class MemoryCallback(RdbCallback):
             self._current_size += self.hashtable_entry_overhead()
     
     def end_set(self, key):
-        self._out.write('%d, %s, %s, %d, %s' % (self._dbnum, "set", encode_key(key), self._current_size, self._current_encoding))
+        self._out.write('%d,%s,%s,%d,%s' % (self._dbnum, "set", encode_key(key), self._current_size, self._current_encoding))
         self.end_key()
     
     def start_list(self, key, length, expiry, info):
@@ -353,7 +353,7 @@ class MemoryCallback(RdbCallback):
             self._current_size += self.linkedlist_entry_overhead()
     
     def end_list(self, key):
-        self._out.write('%d, %s, %s, %d, %s' % (self._dbnum, "list", encode_key(key), self._current_size, self._current_encoding))
+        self._out.write('%d,%s,%s,%d,%s' % (self._dbnum, "list", encode_key(key), self._current_size, self._current_encoding))
         self.end_key()
     
     def start_sorted_set(self, key, length, expiry, info):
@@ -377,7 +377,7 @@ class MemoryCallback(RdbCallback):
             self._current_size += self.skiplist_entry_overhead()
     
     def end_sorted_set(self, key):
-        self._out.write('%d, %s, %s, %d, %s' % (self._dbnum, "sortedset", encode_key(key), self._current_size, self._current_encoding, ))
+        self._out.write('%d,%s,%s,%d,%s' % (self._dbnum, "sortedset", encode_key(key), self._current_size, self._current_encoding, ))
         self.end_key()
         
     def end_key(self):
@@ -428,7 +428,7 @@ class MemoryCallback(RdbCallback):
         #   = 56 + 4 * sizeof_pointer()
         # Additionally, see **table in dictht
         # The length of the table is the next power of 2
-        return 56 + 4*self.sizeof_pointer() + self.next_power(size)*self.sizeof_pointer()
+        return 56 + 4*self.sizeof_pointer() + self.next_power(size)*self.sizeof_pointer()*2
         
     def hashtable_entry_overhead(self):
         # See  https://github.com/antirez/redis/blob/unstable/src/dict.h
@@ -456,7 +456,7 @@ class MemoryCallback(RdbCallback):
         
     def next_power(self, size):
         power = 1
-        while (power < size) :
+        while (power <= size) :
             power = power << 1
         return power
         
