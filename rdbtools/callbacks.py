@@ -1,8 +1,12 @@
+import random
 import re
 from decimal import Decimal
 import sys
 import struct
 from rdbtools.parser import RdbCallback, RdbParser
+
+ZSKIPLIST_MAXLEVEL=32
+ZSKIPLIST_P=0.25
 
 REDIS_SHARED_INTEGERS = 10000
 
@@ -456,10 +460,10 @@ class MemoryCallback(RdbCallback):
         return 3*self.sizeof_pointer()
     
     def skiplist_overhead(self, size):
-        return self.hashtable_overhead(size)
+        return 2*self.sizeof_pointer() + self.hashtable_overhead(size) + (2*self.sizeof_pointer() + 16)
     
     def skiplist_entry_overhead(self):
-        return self.hashtable_entry_overhead()
+        return self.hashtable_entry_overhead() + 2*self.sizeof_pointer() + 8 + (self.sizeof_pointer() + 8) * self.zset_random_level()
     
     def robj_overhead(self):
         return self.sizeof_pointer() + 8
@@ -478,4 +482,15 @@ class MemoryCallback(RdbCallback):
         while (power <= size) :
             power = power << 1
         return power
+ 
+    def zset_random_level(self):
+        level = 1
+        rint = random.randint(0, 0xFFFF)
+        while (rint < ZSKIPLIST_P * 0xFFFF):
+            level += 1
+            rint = random.randint(0, 0xFFFF)        
+        if level < ZSKIPLIST_MAXLEVEL :
+            return level
+        else:
+            return ZSKIPLIST_MAXLEVEL
         
