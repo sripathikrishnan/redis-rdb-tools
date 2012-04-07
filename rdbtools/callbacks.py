@@ -291,6 +291,7 @@ class MemoryCallback(RdbCallback):
     def set(self, key, value, expiry, info):
         self._current_encoding = info['encoding']
         size = self.sizeof_string(key) + self.sizeof_string(value) + self.top_level_object_overhead()
+        size += 2*self.robj_overhead()
         size += self.key_expiry_overhead(expiry)
         
         self._out.write('%d,%s,%s,%d,%s' % (self._dbnum, "string", encode_key(key), size, self._current_encoding))
@@ -299,6 +300,7 @@ class MemoryCallback(RdbCallback):
     def start_hash(self, key, length, expiry, info):
         self._current_encoding = info['encoding']
         size = self.sizeof_string(key)
+        size += 2*self.robj_overhead()
         size += self.top_level_object_overhead()
         size += self.key_expiry_overhead(expiry)
         
@@ -315,6 +317,7 @@ class MemoryCallback(RdbCallback):
             self._current_size += self.sizeof_string(field)
             self._current_size += self.sizeof_string(value)
             self._current_size += self.hashtable_entry_overhead()
+            self._current_size += 2*self.robj_overhead()
     
     def end_hash(self, key):
         self._out.write('%d,%s,%s,%d,%s' % (self._dbnum, "hash", encode_key(key), self._current_size, self._current_encoding))
@@ -328,6 +331,7 @@ class MemoryCallback(RdbCallback):
         if self._current_encoding == 'hashtable':
             self._current_size += self.sizeof_string(member)
             self._current_size += self.hashtable_entry_overhead()
+            self._current_size += self.robj_overhead()
     
     def end_set(self, key):
         self._out.write('%d,%s,%s,%d,%s' % (self._dbnum, "set", encode_key(key), self._current_size, self._current_encoding))
@@ -336,6 +340,7 @@ class MemoryCallback(RdbCallback):
     def start_list(self, key, length, expiry, info):
         self._current_encoding = info['encoding']
         size = self.sizeof_string(key)
+        size += 2*self.robj_overhead()
         size += self.top_level_object_overhead()
         size += self.key_expiry_overhead(expiry)
         
@@ -351,6 +356,7 @@ class MemoryCallback(RdbCallback):
         if self._current_encoding == 'linkedlist':
             self._current_size += self.sizeof_string(value)
             self._current_size += self.linkedlist_entry_overhead()
+            self._current_size += self.robj_overhead()
     
     def end_list(self, key):
         self._out.write('%d,%s,%s,%d,%s' % (self._dbnum, "list", encode_key(key), self._current_size, self._current_encoding))
@@ -359,6 +365,7 @@ class MemoryCallback(RdbCallback):
     def start_sorted_set(self, key, length, expiry, info):
         self._current_encoding = info['encoding']
         size = self.sizeof_string(key)
+        size += 2*self.robj_overhead()
         size += self.top_level_object_overhead()
         size += self.key_expiry_overhead(expiry)
         
@@ -374,6 +381,7 @@ class MemoryCallback(RdbCallback):
         if self._current_encoding == 'skiplist':
             self._current_size += 8 # self.sizeof_string(score)
             self._current_size += self.sizeof_string(member)
+            self._current_size += 2*self.robj_overhead()
             self._current_size += self.skiplist_entry_overhead()
     
     def end_sorted_set(self, key):
@@ -403,15 +411,13 @@ class MemoryCallback(RdbCallback):
             else :
                 return 8
         except ValueError:
-            pass 
-        return len(string) + 8 + 1
+            pass
+        return len(string) + 8 + 1 + self.malloc_overhead()
 
     def top_level_object_overhead(self):
         # Each top level object is an entry in a dictionary, and so we have to include 
         # the overhead of a dictionary entry
-        # Each key=value pair is wrapped in a structure robj
-        # The overhead of a robj is 8 bytes + sizeof_pointer
-        return self.hashtable_entry_overhead() + 2 * (self.sizeof_pointer() + 8)
+        return self.hashtable_entry_overhead()
 
     def key_expiry_overhead(self, expiry):
         # If there is no expiry, there isn't any overhead
@@ -426,9 +432,13 @@ class MemoryCallback(RdbCallback):
         # See the structures dict and dictht
         # 2 * (3 unsigned longs + 1 pointer) + 2 ints + 2 pointers
         #   = 56 + 4 * sizeof_pointer()
+        # 
         # Additionally, see **table in dictht
         # The length of the table is the next power of 2
-        return 56 + 4*self.sizeof_pointer() + self.next_power(size)*self.sizeof_pointer()*2
+        # When the hashtable is rehashing, another instance of **table is created
+        # We are assuming 0.5 percent probability of rehashing, and so multiply 
+        # the size of **table by 1.5
+        return 56 + 4*self.sizeof_pointer() + self.next_power(size)*self.sizeof_pointer()*1.5
         
     def hashtable_entry_overhead(self):
         # See  https://github.com/antirez/redis/blob/unstable/src/dict.h
@@ -450,6 +460,15 @@ class MemoryCallback(RdbCallback):
     
     def skiplist_entry_overhead(self):
         return self.hashtable_entry_overhead()
+    
+    def robj_overhead(self):
+        return self.sizeof_pointer() + 8
+        
+    def malloc_overhead(self):
+        return self.size_t()
+
+    def size_t(self):
+        return self.sizeof_pointer()
         
     def sizeof_pointer(self):
         return self._pointer_size
