@@ -1,5 +1,7 @@
 from collections import namedtuple
 import random
+import heapq
+
 from rdbtools.parser import RdbCallback, RdbParser
 from rdbtools.callbacks import encode_key
 
@@ -9,13 +11,57 @@ REDIS_SHARED_INTEGERS = 10000
 
 MemoryRecord = namedtuple('MemoryRecord', ['database', 'type', 'key', 'bytes', 'encoding'])
 
+class Chart():
+    def __init__(self, chart_type):
+        self.chart_type = chart_type
+        self.columns = []
+        self.rows = []
+        self.options = {}
 
+class MemoryByDatabase():
+    def __init__(self):
+        self.databases = {}
+    
+    def next_record(self, record):
+        if record.database in self.databases :
+            self.databases[record.database] += record.bytes
+        else:
+            self.databases[record.database] = record.bytes
+    
+    def get_chart(self):
+        chart = Chart('pie')
+        chart.columns.append({"type":"string", "label":"Database"})
+        chart.columns.append({"type":"number", "label":"Memory"})
+        for k, v in self.databases.iteritems():
+            chart.rows.append([k,v])
+        chart.options['title'] = 'Memory Usage By Database'
+        return chart
+    
+class MemoryByDataType():
+    def __init__(self):
+        self.types = {}
+    
+    def next_record(self, record):
+        if record.type in self.types:
+            self.types[record.type] += record.bytes
+        else:
+            self.types[record.type] = record.bytes
+
+    def get_chart(self):
+        chart = Chart('pie')
+        chart.columns.append({"type":"string", "label":"Data Type"})
+        chart.columns.append({"type":"number", "label":"Memory"})
+        for k, v in self.types.iteritems():
+            chart.rows.append([k,v])
+        chart.options['title'] = 'Memory Usage By Data Type'
+        return chart
+        
 class PrintAllKeys():
     def __init__(self, out):
         self._out = out
         
     def next_record(self, record) :
-        self._out.write("%d,%s,%s,%d,%s\n" % record)
+        self._out.write("%d,%s,%s,%d,%s\n" % (record.database, record.type, encode_key(record.key), record.bytes, record.encoding))
     
 class MemoryCallback(RdbCallback):
     '''Calculates the memory used if this rdb file were loaded into RAM
@@ -49,7 +95,7 @@ class MemoryCallback(RdbCallback):
         size += 2*self.robj_overhead()
         size += self.key_expiry_overhead(expiry)
         
-        record = MemoryRecord(self._dbnum, "string", encode_key(key), size, self._current_encoding)
+        record = MemoryRecord(self._dbnum, "string", key, size, self._current_encoding)
         self._stream.next_record(record)
         self.end_key()
     
@@ -76,7 +122,7 @@ class MemoryCallback(RdbCallback):
             self._current_size += 2*self.robj_overhead()
     
     def end_hash(self, key):
-        record = MemoryRecord(self._dbnum, "hash", encode_key(key), self._current_size, self._current_encoding)
+        record = MemoryRecord(self._dbnum, "hash", key, self._current_size, self._current_encoding)
         self._stream.next_record(record)
         self.end_key()
     
@@ -91,7 +137,7 @@ class MemoryCallback(RdbCallback):
             self._current_size += self.robj_overhead()
     
     def end_set(self, key):
-        record = MemoryRecord(self._dbnum, "set", encode_key(key), self._current_size, self._current_encoding)
+        record = MemoryRecord(self._dbnum, "set", key, self._current_size, self._current_encoding)
         self._stream.next_record(record)
         self.end_key()
     
@@ -117,7 +163,7 @@ class MemoryCallback(RdbCallback):
             self._current_size += self.robj_overhead()
     
     def end_list(self, key):
-        record = MemoryRecord(self._dbnum, "list", encode_key(key), self._current_size, self._current_encoding)
+        record = MemoryRecord(self._dbnum, "list", key, self._current_size, self._current_encoding)
         self._stream.next_record(record)
         self.end_key()
     
@@ -144,7 +190,7 @@ class MemoryCallback(RdbCallback):
             self._current_size += self.skiplist_entry_overhead()
     
     def end_sorted_set(self, key):
-        record = MemoryRecord(self._dbnum, "sortedset", encode_key(key), self._current_size, self._current_encoding)
+        record = MemoryRecord(self._dbnum, "sortedset", key, self._current_size, self._current_encoding)
         self._stream.next_record(record)
         self.end_key()
         

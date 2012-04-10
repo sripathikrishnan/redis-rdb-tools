@@ -173,6 +173,13 @@ class RedisParserTestCase(unittest.TestCase):
         self.assertEquals(len(r.databases[0]), 0)
         self.assertEquals(len(r.databases[2]), 1)
 
+    def test_rdb_version_5_with_checksum(self):
+        r = self.load_rdb('rdb_version_5_with_checksum.rdb')
+        self.assertEquals(r.databases[0]['abcd'], 'efgh')
+        self.assertEquals(r.databases[0]['foo'], 'bar')
+        self.assertEquals(r.databases[0]['bar'], 'baz')
+        self.assertEquals(r.databases[0]['abcdef'], 'abcdef')
+        self.assertEquals(r.databases[0]['longerstring'], 'thisisalongerstring.idontknowwhatitmeans')
 
 def floateq(f1, f2) :
     return math.fabs(f1 - f2) < 0.00001

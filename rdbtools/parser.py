@@ -602,7 +602,7 @@ class RdbParser :
 
     def verify_version(self, version_str) :
         version = int(version_str)
-        if version < 1 or version > 4 : 
+        if version < 1 or version > 5 : 
             raise Exception('verify_version', 'Invalid RDB version number %d' % version)
 
     def init_filter(self, filters):

@@ -35,6 +35,7 @@ FE $length-encoding         # Previos db ends, next db starts. Database number r
 ...                         # Key value pairs for this database, additonal database
                             
 FF                          ## End of RDB file indicator
+8 byte checksum             ## 
 </code></pre>
 
 h3. Magic Number
@@ -54,6 +55,10 @@ h3. Database Selector
 A Redis instance can have multiple databases.
 
 A single byte @0xFE@ flags the start of the database selector. After this byte, a variable length field indicates the database number. See the section "Length Encoding" to understand how to read this database number.
+
+
+h3. CRC32 Check Sum
+
 
 h3. Key Value Pairs
 
@@ -87,7 +92,7 @@ A one byte flag indicates encoding used to save the Value.
 # 10 = "Ziplist Encoding"
 # 11 = "Intset Encoding"
 # 12 = "Sorted Set in Ziplist Encoding"
-# 13 = "Hashmap in Ziplist Encoding"
+# 13 = "Hashmap in Ziplist Encoding" (Introduced in rdb version 4)
 
 h4. Key 
 
@@ -301,6 +306,8 @@ As you see, the scores follow each element.
 
 h2. Hashmap in Ziplist Encoding
 In this, key=value pairs of a hashmap are stored as successive entries in a ziplist. 
+
+Note : This was introduced in rdb version 4. This deprecates zipmap encoding that was used in earlier versions.
 
 *Example*
    {"us" => "washington", "india" => "delhi"} 
