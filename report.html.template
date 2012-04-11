@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Le styles -->
+    <link href="http://twitter.github.com/bootstrap/assets/css/bootstrap.css" rel="stylesheet">
+    <link href="http://twitter.github.com/bootstrap/assets/css/bootstrap-responsive.css" rel="stylesheet">
+    <link href="http://twitter.github.com/bootstrap/assets/js/google-code-prettify/prettify.css" rel="stylesheet">
+
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <script>
+        var chart_data = $REPORT_JSON;
+    </script>
+    <script type="text/javascript">
+        google.load("visualization", "1", {packages:["corechart"]});
+        google.setOnLoadCallback(draw_charts);
+        
+        function draw_charts() {
+            //draw_pie_chart('database_memory', chart_data.aggregates.database_memory, 'Database Number', 'Size in Bytes', 'Memory Usage by Database')
+            
+            draw_pie_chart('type_memory', chart_data.aggregates.type_memory, 'Data Type', 'Total Size in Bytes', 'Memory Usage by Data Type')
+            draw_column_chart('type_count', chart_data.aggregates.type_count, 'Data Type', 'Keys', 'Number of Keys by Data Type')
+            
+            draw_pie_chart('encoding_memory', chart_data.aggregates.encoding_memory, 'Data Encoding', 'Total Size in Bytes', 'Memory Usage by Data Encoding')
+            draw_column_chart('encoding_count', chart_data.aggregates.encoding_count, 'Data Encoding', 'Keys', 'Number of Keys by Data Encoding')
+            
+            draw_column_chart('string_memory', chart_data.histograms.string_memory, 'Memory in Bytes', 'Frequency', 'Memory in bytes v/s Frequency')
+            draw_column_chart('string_length', chart_data.histograms.string_length, 'Length of String', 'Frequency', 'String Length histogram')
+            draw_scatter_chart('string_memory_by_length', chart_data.scatters.string_memory_by_length, 'Memory in Bytes', 'Length of String', 'Memory Usage v/s Length of String')
+            
+            draw_column_chart('list_memory', chart_data.histograms.list_memory, 'Memory in Bytes', 'Frequency', 'List Memory Usage Histogram')
+            draw_column_chart('list_length', chart_data.histograms.list_length, 'Length of List', 'Frequency', 'List Length Histogram')
+            draw_scatter_chart('list_memory_by_length', chart_data.scatters.list_memory_by_length, 'Memory in Bytes', 'Length of List', 'Memory Usage v/s Length of List')
+
+            draw_column_chart('hash_memory', chart_data.histograms.hash_memory, 'Memory in Bytes', 'Frequency', 'Hash Memory Usage Histogram')
+            draw_column_chart('hash_length', chart_data.histograms.hash_length, 'Length of Hash', 'Frequency', 'Hash Length Histogram')
+            draw_scatter_chart('hash_memory_by_length', chart_data.scatters.hash_memory_by_length, 'Memory in Bytes', 'Length of Hash', 'Memory Usage v/s Length of Hash')
+
+            draw_column_chart('hash_memory', chart_data.histograms.hash_memory, 'Memory in Bytes', 'Frequency', 'Hash Memory Usage Histogram')
+            draw_column_chart('hash_length', chart_data.histograms.hash_length, 'Length of Hash', 'Frequency', 'Hash Length Histogram')
+            draw_scatter_chart('hash_memory_by_length', chart_data.scatters.hash_memory_by_length, 'Memory in Bytes', 'Length of Hash', 'Memory Usage v/s Length of Hash')
+
+        }
+
+        function draw_scatter_chart(id, chart_data, xlabel, ylabel, title){
+            draw_chart_internal('scatter', id, chart_data, xlabel, ylabel, title)
+        }
+        
+        function draw_column_chart(id, chart_data, xlabel, ylabel, title){
+            draw_chart_internal('column', id, chart_data, xlabel, ylabel, title)
+        }
+
+        function draw_pie_chart(id, chart_data, xlabel, ylabel, title){
+            draw_chart_internal('pie', id, chart_data, xlabel, ylabel, title)
+        }
+        
+        function draw_chart_internal(type, id, chart_data, xlabel, ylabel, title ) {
+            if(chart_data) {
+                var data = new google.visualization.DataTable();
+                
+                if(type == 'scatter') {
+                    data.addColumn('number', xlabel);
+                }
+                else {
+                    data.addColumn('string', xlabel);
+                }
+                data.addColumn('number', ylabel);
+                
+                if(type == 'scatter') {
+                    data.addRows(chart_data);
+                }
+                else {
+                    var rows=[]
+                    for (var key in chart_data) {
+                        if(chart_data.hasOwnProperty(key)) {
+                            value = chart_data[key]
+                            rows.push([key, value])
+                        }
+                    }
+                    data.addRows(rows);
+                }
+                var options = {
+                    title: title
+                };
+                
+                var chart;
+                if (type == 'pie') {
+                    chart = new google.visualization.PieChart(document.getElementById(id));
+                }
+                else if (type == 'column') {
+                    chart = new google.visualization.ColumnChart(document.getElementById(id));
+                }
+                else if (type == 'scatter') {
+                    chart = new google.visualization.ScatterChart(document.getElementById(id));
+                }
+
+                else {
+                    throw Exception('Invalid chart type ' + type)
+                }
+                chart.draw(data, options);
+            }
+        }
+    </script>
+    
+  </head>
+  <body>
+    <h1>Redis Memory Distribution for dump.rdb</h1>
+    <div class="container">
+        <!--
+        <div class="row">
+            <div class="span6" id="database_memory">
+            </div>
+            <div class="span6" id="">
+            </div>
+        </div>
+        -->
+        <h2>Memory Usage By Data Type and Data Encoding</h2>
+        <div class="row">
+            <div class="span6" id="type_memory">
+            </div>
+            <div class="span6" id="type_count">
+            </div>
+        </div>
+        <div class="row">
+            <div class="span6" id="encoding_memory">
+            </div>
+            <div class="span6" id="encoding_count">
+            </div>
+        </div>
+        
+        <h2>Memory Usage for Strings</h2>
+        <div class="row">
+            <div class="span6" id="string_memory">
+            </div>
+            <div class="span6" id="string_length">
+            </div>
+        </div>
+        <div class="row">
+            <div class="span3">&nbsp;</div>
+            <div class="span6" id="string_memory_by_length">
+            </div>
+            <div class="span3">&nbsp;</div>
+        </div>
+        
+        <h2>Memory Usage for Lists</h2>
+        <div class="row">
+            <div class="span6" id="list_memory">
+            </div>
+            <div class="span6" id="list_length">
+            </div>
+        </div>
+        <div class="row">
+            <div class="span3">&nbsp;</div>
+            <div class="span6" id="list_memory_by_length">
+            </div>
+            <div class="span3">&nbsp;</div>
+        </div>
+
+        <h2>Memory Usage for Sets</h2>
+        <div class="row">
+            <div class="span6" id="set_memory">
+            </div>
+            <div class="span6" id="set_length">
+            </div>
+        </div>
+        <div class="row">
+            <div class="span3">&nbsp;</div>
+            <div class="span6" id="set_memory_by_length">
+            </div>
+            <div class="span3">&nbsp;</div>
+        </div>
+
+        <h2>Memory Usage for Sorted Sets</h2>
+        <div class="row">
+            <div class="span6" id="sortedset_memory">
+            </div>
+            <div class="span6" id="sortedset_length">
+            </div>
+        </div>
+        <div class="row">
+            <div class="span3">&nbsp;</div>
+            <div class="span6" id="sortedset_memory_by_length">
+            </div>
+            <div class="span3">&nbsp;</div>
+        </div>
+
+        <h2>Memory Usage for Hashes</h2>
+        <div class="row">
+            <div class="span6" id="hash_memory">
+            </div>
+            <div class="span6" id="hash_length">
+            </div>
+        </div>
+        <div class="row">
+            <div class="span3">&nbsp;</div>
+            <div class="span6" id="hash_memory_by_length">
+            </div>
+            <div class="span3">&nbsp;</div>
+        </div>
+
+    <div>
+  </body>
+</html>
+
+
