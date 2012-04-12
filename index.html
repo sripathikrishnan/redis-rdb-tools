@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="Redis RDB Tools : Parse Redis dump.rdb files, Analyze Memory, and Export Data" />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>Redis RDB Tools</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/sripathikrishnan/redis-rdb-tools">Fork Me on GitHub</a>
+
+          <h1 id="project_title">Redis RDB Tools</h1>
+          <h2 id="project_tagline">Parse Redis dump.rdb files, Analyze Memory, and Export Data</h2>
+
+          <section id="downloads">
+            <a class="zip_download_link" href="https://github.com/sripathikrishnan/redis-rdb-tools/zipball/master">Download this project as a .zip file</a>
+            <a class="tar_download_link" href="https://github.com/sripathikrishnan/redis-rdb-tools/tarball/master">Download this project as a tar.gz file</a>
+          </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>Tools to inspect Redis's dump.rdb file</h1>
+
+<p>RDB Tools is a set of tools to work with Redis dump files</p>
+
+<p>rdb-tools lets you : </p>
+
+<ol>
+<li> Convert dump files into JSON</li>
+<li> Generate a Memory Report of your data across all databases and keys</li>
+<li> Compare two dump files using standard diff tools</li>
+<li> Efficiently parse and process rdb files</li>
+</ol><p>RDB Tools is implemented in Python. </p>
+
+<h2>Installing rdbtools</h2>
+
+<pre><code>git checkout git@github.com:sripathikrishnan/redis-rdb-tools.git
+cd redis-rdb-tools
+sudo python setup.py install
+</code></pre>
+
+<h2>Converting dump files to JSON</h2>
+
+<p>Parse the dump file and print the JSON on standard output</p>
+
+<pre><code>./rdb --command json /var/redis/6379/dump.rdb
+</code></pre>
+
+<p>Only process keys that match the regex</p>
+
+<pre><code>./rdb --command json --key "user.*" /var/redis/6379/dump.rdb
+</code></pre>
+
+<p>Only process hashes starting with "a", in database 2 </p>
+
+<pre><code>./rdb --command json --db 2 --type hash --key "a.*" /var/redis/6379/dump.rdb
+</code></pre>
+
+<h2>Generate Memory Report</h2>
+
+<p>Running with the  <code>-c memory</code> generates a CSV report with the approximate memory used by that key.</p>
+
+<pre><code>./rdb -c memory /var/redis/6379/dump.rdb &gt; memory.csv
+</code></pre>
+
+<p>The generated CSV has the following columns - Database Number, Data Type, Key, Memory Used in bytes and Encoding. 
+Memory usage includes the key, the value and any other overheads.</p>
+
+<p>Note that the memory usage is approximate. In general, the actual memory used will be slightly higher than what is reported.</p>
+
+<p>You can filter the report on keys or database number or data type.</p>
+
+<h2>Comparing RDB files</h2>
+
+<p>First, use the --command diff option, and pipe the output to standard sort utility</p>
+
+<pre><code>./rdb --command diff /var/redis/6379/dump1.rdb | sort &gt; dump1.txt
+./rdb --command diff /var/redis/6379/dump2.rdb | sort &gt; dump2.txt
+</code></pre>
+
+<p>Then, run your favourite diff program</p>
+
+<pre><code>kdiff3 dump1.txt dump2.txt
+</code></pre>
+
+<p>To limit the size of the files, you can filter on keys using the --key=regex option</p>
+
+<h2>Using the Parser</h2>
+
+<pre><code>import sys
+from rdbtools import RdbParser, RdbCallback
+
+class MyCallback(RdbCallback) :
+    ''' Simple example to show how callback works. 
+        See RdbCallback for all available callback methods.
+        See JsonCallback for a concrete example
+    ''' 
+    def set(self, key, value, expiry):
+        print('%s = %s' % (str(key), str(value)))
+
+    def hset(self, key, field, value):
+        print('%s.%s = %s' % (str(key), str(field), str(value)))
+
+    def sadd(self, key, member):
+        print('%s has {%s}' % (str(key), str(member)))
+
+    def rpush(self, key, value) :
+        print('%s has [%s]' % (str(key), str(value)))
+
+    def zadd(self, key, score, member):
+        print('%s has {%s : %s}' % (str(key), str(member), str(score)))
+
+callback = MyCallback()
+parser = RdbParser(callback)
+parser.parse('/var/redis/6379/dump.rdb')
+</code></pre>
+
+<h2>What can I do with this parser?</h2>
+
+<p>Several things </p>
+
+<ol>
+<li> Export redis into a relational database like MySQL</li>
+<li> Export redis into a full text search engine like lucene/solr, so that you can do (almost) real time searches</li>
+<li> Merge or split dump files. This is useful if you using several instances of Redis and shard your data</li>
+<li> Build a UI/Explorer for the data in Redis</li>
+</ol>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">Redis RDB Tools maintained by <a href="https://github.com/sripathikrishnan">sripathikrishnan</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
