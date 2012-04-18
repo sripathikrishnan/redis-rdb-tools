@@ -35,7 +35,7 @@ FE $length-encoding         # Previos db ends, next db starts. Database number r
 ...                         # Key value pairs for this database, additonal database
                             
 FF                          ## End of RDB file indicator
-8 byte checksum             ## 
+8 byte checksum             ## CRC 32 checksum of the entire file.
 </code></pre>
 
 h3. Magic Number
@@ -55,10 +55,6 @@ h3. Database Selector
 A Redis instance can have multiple databases.
 
 A single byte @0xFE@ flags the start of the database selector. After this byte, a variable length field indicates the database number. See the section "Length Encoding" to understand how to read this database number.
-
-
-h3. CRC32 Check Sum
-
 
 h3. Key Value Pairs
 
@@ -316,4 +312,9 @@ Note : This was introduced in rdb version 4. This deprecates zipmap encoding tha
    
    ["us", "washington", "india", "delhi"]
    
+
+h3. CRC32 Check Sum
+
+Starting with RDB Version 5, an 8 byte CRC 32 checksum is added to the end of the file. It is possible to disable this checksum via a parameter in redis.conf.
+When checksum is disabled, this field will have zeroes.
 
