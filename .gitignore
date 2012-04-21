@@ -1,6 +1,11 @@
+.project
+.pydevproject
 *.pyc
 build/
 dist/
 rdbtools.egg-info/
 tests/dumps/dump.rdb.backup
+tests/dumps/dump_dealers_vins.rdb
+tests/dumps/dump_random_lists.rdb
+tests/dumps/dump_sorted_sets.rdb
 
