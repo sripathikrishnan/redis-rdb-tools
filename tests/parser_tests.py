@@ -35,8 +35,8 @@ class RedisParserTestCase(unittest.TestCase):
         self.assertEquals(expiry.year, 2022)
         self.assertEquals(expiry.month, 12)
         self.assertEquals(expiry.day, 25)
-        #self.assertEquals(expiry.hour, 10)
-        #self.assertEquals(expiry.minute, 11)
+        self.assertEquals(expiry.hour, 10)
+        self.assertEquals(expiry.minute, 11)
         self.assertEquals(expiry.second, 12)
         self.assertEquals(expiry.microsecond, 573000)        
         
@@ -241,7 +241,7 @@ class MockRedis(RdbCallback):
             raise Exception('start_hash not called for key = %s', key)
         if len(self.currentdb()[key]) != self.lengths[self.dbnum][key] :
             raise Exception('Lengths mismatch on hash %s, expected length = %d, actual = %d'
-                                 % (key, self.lengths[self.dbnum][key], len(currentdb()[key])))
+                                 % (key, self.lengths[self.dbnum][key], len(self.currentdb()[key])))
     
     def start_set(self, key, cardinality, expiry, info):
         if key in self.currentdb() :
@@ -262,7 +262,7 @@ class MockRedis(RdbCallback):
             raise Exception('start_set not called for key = %s', key)
         if len(self.currentdb()[key]) != self.lengths[self.dbnum][key] :
             raise Exception('Lengths mismatch on set %s, expected length = %d, actual = %d'
-                                 % (key, self.lengths[self.dbnum][key], len(currentdb()[key])))
+                                 % (key, self.lengths[self.dbnum][key], len(self.currentdb()[key])))
 
     def start_list(self, key, length, expiry, info):
         if key in self.currentdb() :
@@ -283,7 +283,7 @@ class MockRedis(RdbCallback):
             raise Exception('start_set not called for key = %s', key)
         if len(self.currentdb()[key]) != self.lengths[self.dbnum][key] :
             raise Exception('Lengths mismatch on list %s, expected length = %d, actual = %d'
-                                 % (key, self.lengths[self.dbnum][key], len(currentdb()[key])))
+                                 % (key, self.lengths[self.dbnum][key], len(self.currentdb()[key])))
 
     def start_sorted_set(self, key, length, expiry, info):
         if key in self.currentdb() :
@@ -304,7 +304,7 @@ class MockRedis(RdbCallback):
             raise Exception('start_set not called for key = %s', key)
         if len(self.currentdb()[key]) != self.lengths[self.dbnum][key] :
             raise Exception('Lengths mismatch on sortedset %s, expected length = %d, actual = %d'
-                                 % (key, self.lengths[self.dbnum][key], len(currentdb()[key])))
+                                 % (key, self.lengths[self.dbnum][key], len(self.currentdb()[key])))
 
     def end_database(self, dbnum):
         if self.dbnum != dbnum :

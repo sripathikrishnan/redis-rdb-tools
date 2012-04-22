@@ -281,10 +281,10 @@ class RdbParser :
                 data_type = read_unsigned_char(f)
                 
                 if data_type == REDIS_RDB_OPCODE_EXPIRETIME_MS :
-                    self._expiry = to_datetime(read_unsigned_long(f))
+                    self._expiry = to_datetime(read_unsigned_long(f) * 1000)
                     data_type = read_unsigned_char(f)
                 elif data_type == REDIS_RDB_OPCODE_EXPIRETIME :
-                    self._expiry = to_datetime(read_unsigned_int(f) * 1000)
+                    self._expiry = to_datetime(read_unsigned_int(f) * 1000000)
                     data_type = read_unsigned_char(f)
                 
                 if data_type == REDIS_RDB_OPCODE_SELECTDB :
@@ -697,7 +697,7 @@ def ntohl(f) :
 def to_datetime(usecs_since_epoch):
     seconds_since_epoch = usecs_since_epoch / 1000000
     useconds = usecs_since_epoch % 1000000
-    dt = datetime.datetime.fromtimestamp(seconds_since_epoch)
+    dt = datetime.datetime.utcfromtimestamp(seconds_since_epoch)
     delta = datetime.timedelta(microseconds = useconds)
     return dt + delta
     
