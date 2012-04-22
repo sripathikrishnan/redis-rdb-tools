@@ -33,6 +33,7 @@ Only process hashes starting with "a", in database 2
 
 
 ## Generate Memory Report ##
+
 Running with the  `-c memory` generates a CSV report with the approximate memory used by that key.
 
     ./rdb -c memory /var/redis/6379/dump.rdb > memory.csv
@@ -44,6 +45,9 @@ Memory usage includes the key, the value and any other overheads.
 Note that the memory usage is approximate. In general, the actual memory used will be slightly higher than what is reported.
 
 You can filter the report on keys or database number or data type.
+
+The memory report should help you detect memory leaks caused by your application logic. It will also help you optimize Redis memory usage. 
+
 
 ## Comparing RDB files ##
 
@@ -87,11 +91,15 @@ To limit the size of the files, you can filter on keys using the --key=regex opt
     parser = RdbParser(callback)
     parser.parse('/var/redis/6379/dump.rdb')
 
-## What can I do with this parser?
-Several things 
+## Other Pages
 
- 1.  Export redis into a relational database like MySQL
- 2.  Export redis into a full text search engine like lucene/solr, so that you can do (almost) real time searches
- 3.  Merge or split dump files. This is useful if you using several instances of Redis and shard your data
- 4.  Build a UI/Explorer for the data in Redis
+ 1. [Frequently Asked Questions](https://github.com/sripathikrishnan/redis-rdb-tools/wiki/FAQs)
+ 2. [Redis Dump File Specification](https://github.com/sripathikrishnan/redis-rdb-tools/wiki/Redis-RDB-Dump-File-Format)
+ 3. [Redis Dump File Version History](https://github.com/sripathikrishnan/redis-rdb-tools/blob/master/docs/RDB_Version_History.textile) - this also has notes on converting a dump file to an older version.
+
+## Credits
+
+ 1. [Didier Spézia](https://twitter.com/#!/didier_06)
+ 2. [Yoav Steinberg](https://github.com/yoav-steinberg)
+ 3. [Daniel Mezzatto](https://github.com/mezzatto)
 
