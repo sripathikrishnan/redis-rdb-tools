@@ -1,15 +1,14 @@
-# Tools to inspect Redis's dump.rdb file #
+# Parse Redis dump.rdb files, Analyze Memory, and Export Data to JSON #
 
-RDB Tools is a set of tools to work with Redis dump files
+rdbtools is a parser for Redis' dump.rdb files. The parser generates events similar to an xml sax parser, and is very efficient memory wise.
 
-rdb-tools lets you : 
- 
- 1.  Convert dump files into JSON
- 2.  Generate a Memory Report of your data across all databases and keys
+In addition, rdbtools provides utilities to :
+
+ 1.  Generate a Memory Report of your data across all databases and keys
+ 2.  Convert dump files to JSON
  3.  Compare two dump files using standard diff tools
- 4.  Efficiently parse and process rdb files
 
-RDB Tools is implemented in Python. 
+rdbtools is written in Python, though there are similar projects in other languages. See [FAQs](https://github.com/sripathikrishnan/redis-rdb-tools/wiki/FAQs) for more information.
 
 ## Installing rdbtools ##
 
@@ -96,6 +95,10 @@ To limit the size of the files, you can filter on keys using the --key=regex opt
  1. [Frequently Asked Questions](https://github.com/sripathikrishnan/redis-rdb-tools/wiki/FAQs)
  2. [Redis Dump File Specification](https://github.com/sripathikrishnan/redis-rdb-tools/wiki/Redis-RDB-Dump-File-Format)
  3. [Redis Dump File Version History](https://github.com/sripathikrishnan/redis-rdb-tools/blob/master/docs/RDB_Version_History.textile) - this also has notes on converting a dump file to an older version.
+
+## License
+
+rdbtools is licensed under the MIT License. See [LICENSE](https://github.com/sripathikrishnan/redis-rdb-tools/blob/master/LICENSE)
 
 ## Credits
 
