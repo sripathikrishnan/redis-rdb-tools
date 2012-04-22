@@ -9,28 +9,22 @@ class RedisParserTestCase(unittest.TestCase):
         
     def tearDown(self):
         pass
-    
-    def load_rdb(self, file_name, filters=None) :
-        r = MockRedis()
-        parser = RdbParser(r, filters)
-        parser.parse(os.path.join(os.path.dirname(__file__), 'dumps', file_name))
-        return r
 
     def test_empty_rdb(self):
-        r = self.load_rdb('empty_database.rdb')
+        r = load_rdb('empty_database.rdb')
         self.assert_('start_rdb' in r.methods_called)
         self.assert_('end_rdb' in r.methods_called)
         self.assertEquals(len(r.databases), 0, msg = "didn't expect any databases")
 
     def test_multiple_databases(self):
-        r = self.load_rdb('multiple_databases.rdb')
+        r = load_rdb('multiple_databases.rdb')
         self.assert_(len(r.databases), 2)
         self.assert_(1 not in r.databases)
         self.assertEquals(r.databases[0]["key_in_zeroth_database"], "zero")
         self.assertEquals(r.databases[2]["key_in_second_database"], "second")
         
     def test_keys_with_expiry(self):
-        r = self.load_rdb('keys_with_expiry.rdb')
+        r = load_rdb('keys_with_expiry.rdb')
         expiry = r.expiry[0]['expires_ms_precision']
         self.assertEquals(expiry.year, 2022)
         self.assertEquals(expiry.month, 12)
@@ -41,31 +35,31 @@ class RedisParserTestCase(unittest.TestCase):
         self.assertEquals(expiry.microsecond, 573000)        
         
     def test_integer_keys(self):
-        r = self.load_rdb('integer_keys.rdb')
+        r = load_rdb('integer_keys.rdb')
         self.assertEquals(r.databases[0][125], "Positive 8 bit integer")
         self.assertEquals(r.databases[0][0xABAB], "Positive 16 bit integer")
         self.assertEquals(r.databases[0][0x0AEDD325], "Positive 32 bit integer")
         
     def test_negative_integer_keys(self):
-        r = self.load_rdb('integer_keys.rdb')
+        r = load_rdb('integer_keys.rdb')
         self.assertEquals(r.databases[0][-123], "Negative 8 bit integer")
         self.assertEquals(r.databases[0][-0x7325], "Negative 16 bit integer")
         self.assertEquals(r.databases[0][-0x0AEDD325], "Negative 32 bit integer")
     
     def test_string_key_with_compression(self):
-        r = self.load_rdb('easily_compressible_string_key.rdb')
+        r = load_rdb('easily_compressible_string_key.rdb')
         key = "".join('a' for x in range(0, 200))
         value = "Key that redis should compress easily"
         self.assertEquals(r.databases[0][key], value)
 
     def test_zipmap_thats_compresses_easily(self):
-        r = self.load_rdb('zipmap_that_compresses_easily.rdb')
+        r = load_rdb('zipmap_that_compresses_easily.rdb')
         self.assertEquals(r.databases[0]["zipmap_compresses_easily"]["a"], "aa")
         self.assertEquals(r.databases[0]["zipmap_compresses_easily"]["aa"], "aaaa")
         self.assertEquals(r.databases[0]["zipmap_compresses_easily"]["aaaaa"], "aaaaaaaaaaaaaa")
         
     def test_zipmap_that_doesnt_compress(self):
-        r = self.load_rdb('zipmap_that_doesnt_compress.rdb')
+        r = load_rdb('zipmap_that_doesnt_compress.rdb')
         self.assertEquals(r.databases[0]["zimap_doesnt_compress"]["MKD1G6"], 2)
         self.assertEquals(r.databases[0]["zimap_doesnt_compress"]["YNNXK"], "F7TI")
     
@@ -74,7 +68,7 @@ class RedisParserTestCase(unittest.TestCase):
             Values with length around 253/254/255 bytes are treated specially in the parser
             This test exercises those boundary conditions
         '''
-        r = self.load_rdb('zipmap_with_big_values.rdb')
+        r = load_rdb('zipmap_with_big_values.rdb')
         self.assertEquals(len(r.databases[0]["zipmap_with_big_values"]["253bytes"]), 253)
         self.assertEquals(len(r.databases[0]["zipmap_with_big_values"]["254bytes"]), 254)
         self.assertEquals(len(r.databases[0]["zipmap_with_big_values"]["255bytes"]), 255)
@@ -82,13 +76,13 @@ class RedisParserTestCase(unittest.TestCase):
         
     def test_hash_as_ziplist(self):
         '''In redis dump version = 4, hashmaps are stored as ziplists'''
-        r = self.load_rdb('hash_as_ziplist.rdb')
+        r = load_rdb('hash_as_ziplist.rdb')
         self.assertEquals(r.databases[0]["zipmap_compresses_easily"]["a"], "aa")
         self.assertEquals(r.databases[0]["zipmap_compresses_easily"]["aa"], "aaaa")
         self.assertEquals(r.databases[0]["zipmap_compresses_easily"]["aaaaa"], "aaaaaaaaaaaaaa")
         
     def test_dictionary(self):
-        r = self.load_rdb('dictionary.rdb')
+        r = load_rdb('dictionary.rdb')
         self.assertEquals(r.lengths[0]["force_dictionary"], 1000)
         self.assertEquals(r.databases[0]["force_dictionary"]["ZMU5WEJDG7KU89AOG5LJT6K7HMNB3DEI43M6EYTJ83VRJ6XNXQ"], 
                     "T63SOS8DQJF0Q0VJEZ0D1IQFCYTIPSBOUIAI9SB0OV57MQR1FI")
@@ -96,56 +90,56 @@ class RedisParserTestCase(unittest.TestCase):
                     "6VULTCV52FXJ8MGVSFTZVAGK2JXZMGQ5F8OVJI0X6GEDDR27RZ")
     
     def test_ziplist_that_compresses_easily(self):
-        r = self.load_rdb('ziplist_that_compresses_easily.rdb')
+        r = load_rdb('ziplist_that_compresses_easily.rdb')
         self.assertEquals(r.lengths[0]["ziplist_compresses_easily"], 6)
         for idx, length in enumerate([6, 12, 18, 24, 30, 36]) :
             self.assertEquals(("".join("a" for x in xrange(length))), r.databases[0]["ziplist_compresses_easily"][idx])
     
     def test_ziplist_that_doesnt_compress(self):
-        r = self.load_rdb('ziplist_that_doesnt_compress.rdb')
+        r = load_rdb('ziplist_that_doesnt_compress.rdb')
         self.assertEquals(r.lengths[0]["ziplist_doesnt_compress"], 2)
         self.assert_("aj2410" in r.databases[0]["ziplist_doesnt_compress"])
         self.assert_("cc953a17a8e096e76a44169ad3f9ac87c5f8248a403274416179aa9fbd852344" 
                         in r.databases[0]["ziplist_doesnt_compress"])
     
     def test_ziplist_with_integers(self):
-        r = self.load_rdb('ziplist_with_integers.rdb')
+        r = load_rdb('ziplist_with_integers.rdb')
         self.assertEquals(r.lengths[0]["ziplist_with_integers"], 4)
         for num in (63, 16380, 65535, 0x7fffffffffffffff) :
             self.assert_(num in r.databases[0]["ziplist_with_integers"])
 
     def test_linkedlist(self):
-        r = self.load_rdb('linkedlist.rdb')
+        r = load_rdb('linkedlist.rdb')
         self.assertEquals(r.lengths[0]["force_linkedlist"], 1000)
         self.assert_("JYY4GIFI0ETHKP4VAJF5333082J4R1UPNPLE329YT0EYPGHSJQ" in r.databases[0]["force_linkedlist"])
         self.assert_("TKBXHJOX9Q99ICF4V78XTCA2Y1UYW6ERL35JCIL1O0KSGXS58S" in r.databases[0]["force_linkedlist"])
 
     def test_intset_16(self):
-        r = self.load_rdb('intset_16.rdb')
+        r = load_rdb('intset_16.rdb')
         self.assertEquals(r.lengths[0]["intset_16"], 3)
         for num in (0x7ffe, 0x7ffd, 0x7ffc) :
             self.assert_(num in r.databases[0]["intset_16"])
 
     def test_intset_32(self):
-        r = self.load_rdb('intset_32.rdb')
+        r = load_rdb('intset_32.rdb')
         self.assertEquals(r.lengths[0]["intset_32"], 3)
         for num in (0x7ffefffe, 0x7ffefffd, 0x7ffefffc) :
             self.assert_(num in r.databases[0]["intset_32"])
 
     def test_intset_64(self):
-        r = self.load_rdb('intset_64.rdb')
+        r = load_rdb('intset_64.rdb')
         self.assertEquals(r.lengths[0]["intset_64"], 3)
         for num in (0x7ffefffefffefffe, 0x7ffefffefffefffd, 0x7ffefffefffefffc) :
             self.assert_(num in r.databases[0]["intset_64"])
 
     def test_regular_set(self):
-        r = self.load_rdb('regular_set.rdb')
+        r = load_rdb('regular_set.rdb')
         self.assertEquals(r.lengths[0]["regular_set"], 6)
         for member in ("alpha", "beta", "gamma", "delta", "phi", "kappa") :
             self.assert_(member in r.databases[0]["regular_set"], msg=('%s missing' % member))
 
     def test_sorted_set_as_ziplist(self):
-        r = self.load_rdb('sorted_set_as_ziplist.rdb')
+        r = load_rdb('sorted_set_as_ziplist.rdb')
         self.assertEquals(r.lengths[0]["sorted_set_as_ziplist"], 3)
         zset = r.databases[0]["sorted_set_as_ziplist"]
         self.assert_(floateq(zset['8b6ba6718a786daefa69438148361901'], 1))
@@ -153,13 +147,13 @@ class RedisParserTestCase(unittest.TestCase):
         self.assert_(floateq(zset['523af537946b79c4f8369ed39ba78605'], 3.423))
 
     def test_filtering_by_keys(self):
-        r = self.load_rdb('parser_filters.rdb', filters={"keys":"k[0-9]"})
+        r = load_rdb('parser_filters.rdb', filters={"keys":"k[0-9]"})
         self.assertEquals(r.databases[0]['k1'], "ssssssss")
         self.assertEquals(r.databases[0]['k3'], "wwwwwwww")
         self.assertEquals(len(r.databases[0]), 2)
 
     def test_filtering_by_type(self):
-        r = self.load_rdb('parser_filters.rdb', filters={"types":["sortedset"]})
+        r = load_rdb('parser_filters.rdb', filters={"types":["sortedset"]})
         self.assert_('z1' in r.databases[0])
         self.assert_('z2' in r.databases[0])
         self.assert_('z3' in r.databases[0])
@@ -167,14 +161,14 @@ class RedisParserTestCase(unittest.TestCase):
         self.assertEquals(len(r.databases[0]), 4)
 
     def test_filtering_by_database(self):
-        r = self.load_rdb('multiple_databases.rdb', filters={"dbs":[2]})
+        r = load_rdb('multiple_databases.rdb', filters={"dbs":[2]})
         self.assert_('key_in_zeroth_database' not in r.databases[0])
         self.assert_('key_in_second_database' in r.databases[2])
         self.assertEquals(len(r.databases[0]), 0)
         self.assertEquals(len(r.databases[2]), 1)
 
     def test_rdb_version_5_with_checksum(self):
-        r = self.load_rdb('rdb_version_5_with_checksum.rdb')
+        r = load_rdb('rdb_version_5_with_checksum.rdb')
         self.assertEquals(r.databases[0]['abcd'], 'efgh')
         self.assertEquals(r.databases[0]['foo'], 'bar')
         self.assertEquals(r.databases[0]['bar'], 'baz')
@@ -183,6 +177,12 @@ class RedisParserTestCase(unittest.TestCase):
 
 def floateq(f1, f2) :
     return math.fabs(f1 - f2) < 0.00001
+
+def load_rdb(file_name, filters=None) :
+    r = MockRedis()
+    parser = RdbParser(r, filters)
+    parser.parse(os.path.join(os.path.dirname(__file__), 'dumps', file_name))
+    return r
     
 class MockRedis(RdbCallback):
     def __init__(self) :
