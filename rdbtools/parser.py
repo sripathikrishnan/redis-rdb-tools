@@ -345,7 +345,7 @@ class RdbParser :
             elif length == REDIS_RDB_ENC_LZF :
                 clen = self.read_length(f)
                 l = self.read_length(f)
-                val = lzf_decompress(f.read(clen), l)
+                val = self.lzf_decompress(f.read(clen), l)
         else :
             val = f.read(length)
         return val
@@ -408,7 +408,7 @@ class RdbParser :
         elif enc_type == REDIS_RDB_TYPE_HASH_ZIPLIST :
             self.read_hash_from_ziplist(f)
         else :
-            raise Exception('read_object', 'Invalid object type %d' % enc_type)
+            raise Exception('read_object', 'Invalid object type %d for key %s' % (enc_type, self._key))
 
     def skip_key_and_object(self, f, data_type):
         self.skip_string(f)
@@ -458,7 +458,7 @@ class RdbParser :
         elif enc_type == REDIS_RDB_TYPE_HASH_ZIPLIST :
             skip_strings = 1
         else :
-            raise Exception('read_object', 'Invalid object type %d' % enc_type)
+            raise Exception('read_object', 'Invalid object type %d for key %s' % (enc_type, self._key))
         for x in xrange(0, skip_strings):
             self.skip_string(f)
 
@@ -477,7 +477,7 @@ class RdbParser :
             elif encoding == 2 :
                 entry = read_unsigned_short(buff)
             else :
-                raise Exception('read_intset', 'Invalid encoding %d' % encoding)
+                raise Exception('read_intset', 'Invalid encoding %d for key %s' % (encoding, self._key))
             self._callback.sadd(self._key, entry)
         self._callback.end_set(self._key)
 
@@ -493,7 +493,7 @@ class RdbParser :
             self._callback.rpush(self._key, val)
         zlist_end = read_unsigned_char(buff)
         if zlist_end != 255 : 
-            raise Exception('read_ziplist', "Invalid zip list end - %d" % zlist_end)
+            raise Exception('read_ziplist', "Invalid zip list end - %d for key %s" % (zlist_end, self._key))
         self._callback.end_list(self._key)
 
     def read_zset_from_ziplist(self, f) :
@@ -503,7 +503,7 @@ class RdbParser :
         tail_offset = read_unsigned_int(buff)
         num_entries = read_unsigned_short(buff)
         if (num_entries % 2) :
-            raise Exception('read_zset_from_ziplist', "Expected even number of elements, but found %d" % num_entries)
+            raise Exception('read_zset_from_ziplist', "Expected even number of elements, but found %d for key %s" % (num_entries, self._key))
         num_entries = num_entries /2
         self._callback.start_sorted_set(self._key, num_entries, self._expiry, info={'encoding':'ziplist', 'sizeof_value':len(raw_string)})
         for x in xrange(0, num_entries) :
@@ -514,7 +514,7 @@ class RdbParser :
             self._callback.zadd(self._key, score, member)
         zlist_end = read_unsigned_char(buff)
         if zlist_end != 255 : 
-            raise Exception('read_zset_from_ziplist', "Invalid zip list end - %d" % zlist_end)
+            raise Exception('read_zset_from_ziplist', "Invalid zip list end - %d for key %s" % (zlist_end, self._key))
         self._callback.end_sorted_set(self._key)
 
     def read_hash_from_ziplist(self, f) :
@@ -524,7 +524,7 @@ class RdbParser :
         tail_offset = read_unsigned_int(buff)
         num_entries = read_unsigned_short(buff)
         if (num_entries % 2) :
-            raise Exception('read_hash_from_ziplist', "Expected even number of elements, but found %d" % num_entries)
+            raise Exception('read_hash_from_ziplist', "Expected even number of elements, but found %d for key %s" % (num_entries, self._key))
         num_entries = num_entries /2
         self._callback.start_hash(self._key, num_entries, self._expiry, info={'encoding':'ziplist', 'sizeof_value':len(raw_string)})
         for x in xrange(0, num_entries) :
@@ -533,7 +533,7 @@ class RdbParser :
             self._callback.hset(self._key, field, value)
         zlist_end = read_unsigned_char(buff)
         if zlist_end != 255 : 
-            raise Exception('read_hash_from_ziplist', "Invalid zip list end - %d" % zlist_end)
+            raise Exception('read_hash_from_ziplist', "Invalid zip list end - %d for key %s" % (zlist_end, self._key))
         self._callback.end_hash(self._key)
     
     
@@ -560,7 +560,7 @@ class RdbParser :
         elif (entry_header >> 4) == 14 :
             value = read_signed_long(f)
         else :
-            raise Exception('read_ziplist_entry', 'Invalid entry_header %d' % entry_header)
+            raise Exception('read_ziplist_entry', 'Invalid entry_header %d for key %s' % (entry_header, self._key))
         return value
         
     def read_zipmap(self, f) :
@@ -575,7 +575,7 @@ class RdbParser :
             key = buff.read(next_length)
             next_length = self.read_zipmap_next_length(buff)
             if next_length is None :
-                raise Exception('read_zip_map', 'Unexepcted end of zip map')        
+                raise Exception('read_zip_map', 'Unexepcted end of zip map for key %s' % self._key)        
             free = read_unsigned_char(buff)
             value = buff.read(next_length)
             try:
@@ -646,44 +646,43 @@ class RdbParser :
     def get_logical_type(self, data_type):
         return DATA_TYPE_MAPPING[data_type]
         
+    def lzf_decompress(self, compressed, expected_length):
+        in_stream = bytearray(compressed)
+        in_len = len(in_stream)
+        in_index = 0
+        out_stream = bytearray()
+        out_index = 0
+    
+        while in_index < in_len :
+            ctrl = in_stream[in_index]
+            if not isinstance(ctrl, int) :
+                raise Exception('lzf_decompress', 'ctrl should be a number %s for key %s' % (str(ctrl), self._key))
+            in_index = in_index + 1
+            if ctrl < 32 :
+                for x in xrange(0, ctrl + 1) :
+                    out_stream.append(in_stream[in_index])
+                    #sys.stdout.write(chr(in_stream[in_index]))
+                    in_index = in_index + 1
+                    out_index = out_index + 1
+            else :
+                length = ctrl >> 5
+                if length == 7 :
+                    length = length + in_stream[in_index]
+                    in_index = in_index + 1
+                
+                ref = out_index - ((ctrl & 0x1f) << 8) - in_stream[in_index] - 1
+                in_index = in_index + 1
+                for x in xrange(0, length + 2) :
+                    out_stream.append(out_stream[ref])
+                    ref = ref + 1
+                    out_index = out_index + 1
+        if len(out_stream) != expected_length :
+            raise Exception('lzf_decompress', 'Expected lengths do not match %d != %d for key %s' % (len(out_stream), expected_length, self._key))
+        return str(out_stream)
 
 def skip(f, free):
     if free :
         f.read(free)
-
-def lzf_decompress(compressed, expected_length):
-    in_stream = bytearray(compressed)
-    in_len = len(in_stream)
-    in_index = 0
-    out_stream = bytearray()
-    out_index = 0
-
-    while in_index < in_len :
-        ctrl = in_stream[in_index]
-        if not isinstance(ctrl, int) :
-            raise Exception('lzf_decompress', 'ctrl should be a number %s' % str(ctrl))
-        in_index = in_index + 1
-        if ctrl < 32 :
-            for x in xrange(0, ctrl + 1) :
-                out_stream.append(in_stream[in_index])
-                #sys.stdout.write(chr(in_stream[in_index]))
-                in_index = in_index + 1
-                out_index = out_index + 1
-        else :
-            length = ctrl >> 5
-            if length == 7 :
-                length = length + in_stream[in_index]
-                in_index = in_index + 1
-            
-            ref = out_index - ((ctrl & 0x1f) << 8) - in_stream[in_index] - 1
-            in_index = in_index + 1
-            for x in xrange(0, length + 2) :
-                out_stream.append(out_stream[ref])
-                ref = ref + 1
-                out_index = out_index + 1
-    if len(out_stream) != expected_length :
-        raise Exception('lzf_decompress', 'Expected lengths do not match %d != %d' % (len(out_stream), expected_length))
-    return str(out_stream)
 
 def ntohl(f) :
     val = read_unsigned_int(f)
