@@ -4,6 +4,27 @@ This document tracks the changes made to the dump file format over time.
 
 Redis dump file is 100% backwards compatible. An older dump file format will always work with a newer version of Redis.
 
+h2. Version 6
+
+In previous versions, ziplists used a variable length encoding scheme for integers. 
+Integers were stored in 16, 32 or 64 bits. In this version, this variable length 
+encoding system has been extended. 
+
+The following additions have been made : 
+
+ 1. Integers 0 through 12, both inclusive, are now encoded as part of the entry header
+ 2. Numbers between -128 and 127, both inclusive, are stored in 1 byte
+ 3. Numbers between -2^23 and 2^23 -1, both inclusive, are stored in 3 bytes
+
+Issue ID : https://github.com/antirez/redis/issues/469
+
+To migrate to version 5 : 
+
+ 1. In redis.conf, set `list-max-ziplist-entries` to 0
+ 2. Restart Redis Server, and issue the `SAVE` command
+ 3. Edit the dump.rdb file, and change the rdb version in the header to `REDIS0005`
+
+
 h2. Version 5
 
 This version introduced an 8 byte checksum (CRC-32) at the end of the file. If checksum is disabled in redis.conf,
@@ -63,6 +84,7 @@ Specifically, it introduced the following encoding types -
 Commit : https://github.com/antirez/redis/commit/6b52ad87c05ca2162a2d21f1f5b5329bf52a7678
     
 To migrate to version 1 - 
+
  1. In redis.conf, set the following properties to 0 `hash-max-zipmap-entries, list-max-ziplist-entries, set-max-intset-entries, zset-max-ziplist-entries`
  2. Restart Redis, and issue the SAVE command
  3. Edit the dump.rdb file, and change the rdb version in the header to `REDIS0001`
