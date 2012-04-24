@@ -104,9 +104,17 @@ class RedisParserTestCase(unittest.TestCase):
     
     def test_ziplist_with_integers(self):
         r = load_rdb('ziplist_with_integers.rdb')
-        self.assertEquals(r.lengths[0]["ziplist_with_integers"], 4)
-        for num in (63, 16380, 65535, 0x7fffffffffffffff) :
-            self.assert_(num in r.databases[0]["ziplist_with_integers"])
+        
+        expected_numbers = []
+        for x in range(0,13):
+            expected_numbers.append(x)
+        
+        expected_numbers += [-2, 13, 25, -61, 63, 16380, -16000, 65535, -65523, 4194304, 0x7fffffffffffffff]
+        
+        self.assertEquals(r.lengths[0]["ziplist_with_integers"], len(expected_numbers))
+        
+        for num in expected_numbers :
+            self.assert_(num in r.databases[0]["ziplist_with_integers"], "Cannot find %d" % num)
 
     def test_linkedlist(self):
         r = load_rdb('linkedlist.rdb')

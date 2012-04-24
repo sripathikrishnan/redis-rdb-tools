@@ -10,26 +10,26 @@ r2 = redis.StrictRedis(db=2)
 def create_test_rdbs(path_to_redis_dump, dump_folder) :
     clean_database()
     tests = (
-                empty_database,
-                multiple_databases,
-                keys_with_expiry, 
-                integer_keys, 
-                uncompressible_string_keys, 
-                easily_compressible_string_key, 
-                zipmap_that_doesnt_compress, 
-                zipmap_that_compresses_easily, 
-                zipmap_with_big_values,
-                dictionary, 
-                ziplist_that_compresses_easily, 
-                ziplist_that_doesnt_compress, 
+#                empty_database,
+#                multiple_databases,
+#                keys_with_expiry, 
+#                integer_keys, 
+#                uncompressible_string_keys, 
+#                easily_compressible_string_key, 
+#                zipmap_that_doesnt_compress, 
+#                zipmap_that_compresses_easily, 
+#                zipmap_with_big_values,
+#                dictionary, 
+#                ziplist_that_compresses_easily, 
+#                ziplist_that_doesnt_compress, 
                 ziplist_with_integers, 
-                linkedlist, 
-                intset_16, 
-                intset_32, 
-                intset_64, 
-                regular_set, 
-                sorted_set_as_ziplist, 
-                regular_sorted_set
+#                linkedlist, 
+#                intset_16, 
+#                intset_32, 
+#                intset_64, 
+#                regular_set, 
+#                sorted_set_as_ziplist, 
+#                regular_sorted_set
             )
     for t in tests :
         create_rdb_file(t, path_to_redis_dump, dump_folder)
@@ -103,11 +103,31 @@ def ziplist_that_doesnt_compress() :
     r.rpush("ziplist_doesnt_compress", "cc953a17a8e096e76a44169ad3f9ac87c5f8248a403274416179aa9fbd852344")
 
 def ziplist_with_integers() :
-    r.rpush("ziplist_with_integers", 63)
-    r.rpush("ziplist_with_integers", 16380)
-    r.rpush("ziplist_with_integers", 65535)
-    r.rpush("ziplist_with_integers", 0x7fffffffffffffff)
     
+    # Integers between 0 and 12, both inclusive, are encoded differently
+    for x in range(0,13):
+        r.rpush("ziplist_with_integers", x)
+    
+    
+    # Dealing with 1 byte integers
+    r.rpush("ziplist_with_integers", -2)
+    r.rpush("ziplist_with_integers", 13)
+    r.rpush("ziplist_with_integers", 25)
+    r.rpush("ziplist_with_integers", -61)
+    r.rpush("ziplist_with_integers", 63)
+    
+    # Dealing with 2 byte integers
+    r.rpush("ziplist_with_integers", 16380)
+    r.rpush("ziplist_with_integers", -16000)
+    
+    # Dealing with 4 byte signed integers
+    r.rpush("ziplist_with_integers", 65535)
+    r.rpush("ziplist_with_integers", -65523)
+    
+    # Dealing with 8 byte signed integers
+    r.rpush("ziplist_with_integers", 4194304)
+    r.rpush("ziplist_with_integers", 0x7fffffffffffffff)
+
 def linkedlist() :
     num_entries = 1000
     for x in xrange(0, num_entries) :

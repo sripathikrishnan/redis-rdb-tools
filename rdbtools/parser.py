@@ -559,6 +559,12 @@ class RdbParser :
             value = read_signed_int(f)
         elif (entry_header >> 4) == 14 :
             value = read_signed_long(f)
+        elif (entry_header == 240) :
+            value = read_24bit_signed_number(f)
+        elif (entry_header == 254) :
+            value = read_signed_char(f)
+        elif (entry_header >= 241 and entry_header <= 253) :
+            value = entry_header - 241
         else :
             raise Exception('read_ziplist_entry', 'Invalid entry_header %d for key %s' % (entry_header, self._key))
         return value
@@ -602,7 +608,7 @@ class RdbParser :
 
     def verify_version(self, version_str) :
         version = int(version_str)
-        if version < 1 or version > 5 : 
+        if version < 1 or version > 6 : 
             raise Exception('verify_version', 'Invalid RDB version number %d' % version)
 
     def init_filter(self, filters):
@@ -718,6 +724,11 @@ def read_signed_int(f) :
 def read_unsigned_int(f) :
     return struct.unpack('I', f.read(4))[0]
 
+def read_24bit_signed_number(f):
+    s = '0' + f.read(3)
+    num = struct.unpack('i', s)[0]
+    return num >> 8
+    
 def read_signed_long(f) :
     return struct.unpack('q', f.read(8))[0]
     
