@@ -12,17 +12,17 @@ encoding system has been extended.
 
 The following additions have been made : 
 
- 1. Integers 0 through 12, both inclusive, are now encoded as part of the entry header
- 2. Numbers between -128 and 127, both inclusive, are stored in 1 byte
- 3. Numbers between -2^23 and 2^23 -1, both inclusive, are stored in 3 bytes
+ # Integers 0 through 12, both inclusive, are now encoded as part of the entry header
+ # Numbers between -128 and 127, both inclusive, are stored in 1 byte
+ # Numbers between -2^23 and 2^23 -1, both inclusive, are stored in 3 bytes
 
 Issue ID : https://github.com/antirez/redis/issues/469
 
 To migrate to version 5 : 
 
- 1. In redis.conf, set `list-max-ziplist-entries` to 0
- 2. Restart Redis Server, and issue the `SAVE` command
- 3. Edit the dump.rdb file, and change the rdb version in the header to `REDIS0005`
+ # In redis.conf, set `list-max-ziplist-entries` to 0
+ # Restart Redis Server, and issue the `SAVE` command
+ # Edit the dump.rdb file, and change the rdb version in the header to `REDIS0005`
 
 
 h2. Version 5
@@ -34,8 +34,8 @@ Issue ID : https://github.com/antirez/redis/issues/366
 
 To migrate to version 4 - 
  
- 1. Delete the last 8 bytes of the file (i.e. after the byte `0xFF`)
- 2. Change the rdb version in the header to `REDIS0004`
+ # Delete the last 8 bytes of the file (i.e. after the byte `0xFF`)
+ # Change the rdb version in the header to `REDIS0004`
 
 
 h2. Version 4
@@ -50,9 +50,9 @@ Issue ID : https://github.com/antirez/redis/pull/285
 
 To migrate to version 3 - 
  
- 1. In redis.conf, set `hash-max-ziplist-entries` to 0
- 2. Restart Redis Server, and issue the `SAVE` command
- 3. Edit the dump.rdb file, and change the rdb version in the header to `REDIS0003`
+ # In redis.conf, set `hash-max-ziplist-entries` to 0
+ # Restart Redis Server, and issue the `SAVE` command
+ # Edit the dump.rdb file, and change the rdb version in the header to `REDIS0003`
  
 h2. Version 3
 
@@ -65,10 +65,10 @@ Issue ID : https://github.com/antirez/redis/issues/169
 
 To migrate to version 2 - 
 
- 1. If you don't use key expiry, simply change the version in the header to `REDIS0002`
- 2. If you use key expiry, you can still migrate, but there will be some loss in expiry precision. Also, the migration is a bit involved.
- 3. For each key=value pair in the dump file, you will have to convert `0xFC <8 byte timestamp>` to `0xFD <4 byte timestamp>`. 
- 4. After converting the timestamps, change the version in the header to `REDIS0002`
+ # If you don't use key expiry, simply change the version in the header to `REDIS0002`
+ # If you use key expiry, you can still migrate, but there will be some loss in expiry precision. Also, the migration is a bit involved.
+ # For each key=value pair in the dump file, you will have to convert `0xFC <8 byte timestamp>` to `0xFD <4 byte timestamp>`. 
+ # After converting the timestamps, change the version in the header to `REDIS0002`
  
 h2. Version 2
 
@@ -85,7 +85,7 @@ Commit : https://github.com/antirez/redis/commit/6b52ad87c05ca2162a2d21f1f5b5329
     
 To migrate to version 1 - 
 
- 1. In redis.conf, set the following properties to 0 `hash-max-zipmap-entries, list-max-ziplist-entries, set-max-intset-entries, zset-max-ziplist-entries`
- 2. Restart Redis, and issue the SAVE command
- 3. Edit the dump.rdb file, and change the rdb version in the header to `REDIS0001`
+ # In redis.conf, set the following properties to 0 `hash-max-zipmap-entries, list-max-ziplist-entries, set-max-intset-entries, zset-max-ziplist-entries`
+ # Restart Redis, and issue the SAVE command
+ # Edit the dump.rdb file, and change the rdb version in the header to `REDIS0001`
 
