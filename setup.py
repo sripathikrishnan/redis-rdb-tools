@@ -19,8 +19,14 @@ sdict = {
     'maintainer_email' : 'Sripathi.Krishnan@gmail.com',
     'keywords' : ['Redis', 'RDB', 'Export', 'Dump'],
     'license' : 'MIT',
-    'packages' : ['rdbtools'],
+    'packages' : ['rdbtools', 'rdbtools.cli'],
+    'package_data' : {'rdbtools.cli': ['*.template']},
     'test_suite' : 'tests.all_tests',
+    'entry_points' : {
+        'console_scripts' : [
+            'rdb = rdbtools.cli.rdb:main',
+            'redis-profiler = rdbtools.cli.redis_profiler:main'],
+    },
     'classifiers' : [
         'Development Status :: 2 - Development/Experimental',
         'Environment :: Console',
