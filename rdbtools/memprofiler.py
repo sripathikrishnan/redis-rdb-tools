@@ -332,6 +332,8 @@ class MemoryCallback(RdbCallback):
 def element_length(element):
     if isinstance(element, int):
         return 8
+    if isinstance(element, long):
+        return 16
     else:
         return len(element)
     
