@@ -68,7 +68,10 @@ Output :
     Number of Elements		2
     Length of Largest Element	8
 
-NOTE : This was added to redis-rdb-tools version 0.1.3
+NOTE : 
+
+1. This was added to redis-rdb-tools version 0.1.3
+2. This command depends [redis-py](https://github.com/andymccurdy/redis-py) package
 
 ## Comparing RDB files ##
 
