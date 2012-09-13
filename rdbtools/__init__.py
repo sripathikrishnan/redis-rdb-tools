@@ -2,7 +2,7 @@ from rdbtools.parser import RdbCallback, RdbParser, DebugCallback
 from rdbtools.callbacks import JSONCallback, DiffCallback
 from rdbtools.memprofiler import MemoryCallback, PrintAllKeys, StatsAggregator
 
-__version__ = '0.1.2'
+__version__ = '0.1.3'
 VERSION = tuple(map(int, __version__.split('.')))
 
 __all__ = [

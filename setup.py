@@ -17,7 +17,7 @@ sdict = {
     'author_email' : 'Sripathi.Krishnan@gmail.com',
     'maintainer' : 'Sripathi Krishnan',
     'maintainer_email' : 'Sripathi.Krishnan@gmail.com',
-    'keywords' : ['Redis', 'RDB', 'Export', 'Dump'],
+    'keywords' : ['Redis', 'RDB', 'Export', 'Dump', 'Memory Profiler'],
     'license' : 'MIT',
     'packages' : ['rdbtools', 'rdbtools.cli'],
     'package_data' : {'rdbtools.cli': ['*.template']},
@@ -25,6 +25,7 @@ sdict = {
     'entry_points' : {
         'console_scripts' : [
             'rdb = rdbtools.cli.rdb:main',
+            'redis-memory-for-key = rdbtools.cli.redis_memory_for_key:main',
             'redis-profiler = rdbtools.cli.redis_profiler:main'],
     },
     'classifiers' : [
