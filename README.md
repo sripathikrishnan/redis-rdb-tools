@@ -20,22 +20,22 @@ Rdbtools is written in Python, though there are similar projects in other langua
 
 Parse the dump file and print the JSON on standard output
 
-    ./rdb --command json /var/redis/6379/dump.rdb
+    rdb --command json /var/redis/6379/dump.rdb
     
 Only process keys that match the regex
 
-    ./rdb --command json --key "user.*" /var/redis/6379/dump.rdb
+    rdb --command json --key "user.*" /var/redis/6379/dump.rdb
     
 Only process hashes starting with "a", in database 2 
 
-    ./rdb --command json --db 2 --type hash --key "a.*" /var/redis/6379/dump.rdb
+    rdb --command json --db 2 --type hash --key "a.*" /var/redis/6379/dump.rdb
 
 
 ## Generate Memory Report ##
 
 Running with the  `-c memory` generates a CSV report with the approximate memory used by that key.
 
-    ./rdb -c memory /var/redis/6379/dump.rdb > memory.csv
+    rdb -c memory /var/redis/6379/dump.rdb > memory.csv
 
 
 The generated CSV has the following columns - Database Number, Data Type, Key, Memory Used in bytes and Encoding. 
@@ -47,13 +47,35 @@ You can filter the report on keys or database number or data type.
 
 The memory report should help you detect memory leaks caused by your application logic. It will also help you optimize Redis memory usage. 
 
+## Find Memory used by a Single Key ##
+
+Sometimes you just want to find the memory used by a particular key, and running the entire memory report on the dump file is time consuming.
+
+In such cases, you can use the `redis-memory-for-key` command
+
+Example :
+
+    redis-memory-for-key person:1
+    
+    redis-memory-for-key -s localhost -p 6379 -a mypassword person:1
+    
+Output :
+
+    Key 			"person:1"
+    Bytes				111
+    Type				hash
+    Encoding			ziplist
+    Number of Elements		2
+    Length of Largest Element	8
+
+NOTE : This was added to redis-rdb-tools version 0.1.3
 
 ## Comparing RDB files ##
 
 First, use the --command diff option, and pipe the output to standard sort utility
 
-    ./rdb --command diff /var/redis/6379/dump1.rdb | sort > dump1.txt
-    ./rdb --command diff /var/redis/6379/dump2.rdb | sort > dump2.txt
+    rdb --command diff /var/redis/6379/dump1.rdb | sort > dump1.txt
+    rdb --command diff /var/redis/6379/dump2.rdb | sort > dump2.txt
     
 Then, run your favourite diff program
 
