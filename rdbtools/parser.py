@@ -551,7 +551,7 @@ class RdbParser :
             length = ((entry_header & 0x3F) << 8) | read_unsigned_char(f)
             value = f.read(length)
         elif (entry_header >> 6) == 2 :
-            length = read_unsigned_int(f)
+            length = read_big_endian_unsigned_int(f)
             value = f.read(length)
         elif (entry_header >> 4) == 12 :
             value = read_signed_short(f)
@@ -723,6 +723,9 @@ def read_signed_int(f) :
     
 def read_unsigned_int(f) :
     return struct.unpack('I', f.read(4))[0]
+
+def read_big_endian_unsigned_int(f):
+    return struct.unpack('>I', f.read(4))[0]
 
 def read_24bit_signed_number(f):
     s = '0' + f.read(3)
