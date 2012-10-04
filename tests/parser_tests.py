@@ -67,12 +67,18 @@ class RedisParserTestCase(unittest.TestCase):
         ''' See issue https://github.com/sripathikrishnan/redis-rdb-tools/issues/2
             Values with length around 253/254/255 bytes are treated specially in the parser
             This test exercises those boundary conditions
+
+            In order to test a bug with large ziplists, it is necessary to start
+            Redis with "hash-max-ziplist-value 21000", create this rdb file,
+            and run the test. That forces the 20kbyte value to be stored as a
+            ziplist with a length encoding of 5 bytes.
         '''
         r = load_rdb('zipmap_with_big_values.rdb')
         self.assertEquals(len(r.databases[0]["zipmap_with_big_values"]["253bytes"]), 253)
         self.assertEquals(len(r.databases[0]["zipmap_with_big_values"]["254bytes"]), 254)
         self.assertEquals(len(r.databases[0]["zipmap_with_big_values"]["255bytes"]), 255)
         self.assertEquals(len(r.databases[0]["zipmap_with_big_values"]["300bytes"]), 300)
+        self.assertEquals(len(r.databases[0]["zipmap_with_big_values"]["20kbytes"]), 20000)
         
     def test_hash_as_ziplist(self):
         '''In redis dump version = 4, hashmaps are stored as ziplists'''

@@ -88,6 +88,7 @@ def zipmap_with_big_values():
     r.hset("zipmap_with_big_values", "254bytes", random_string(254, 'seed2'))
     r.hset("zipmap_with_big_values", "255bytes", random_string(255, 'seed3'))
     r.hset("zipmap_with_big_values", "300bytes", random_string(300, 'seed4'))
+    r.hset("zipmap_with_big_values", "20kbytes", random_string(20000, 'seed5'))
     
 def dictionary() :
     num_entries = 1000
