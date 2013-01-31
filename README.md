@@ -12,6 +12,12 @@ Rdbtools is written in Python, though there are similar projects in other langua
 
 ## Installing rdbtools ##
 
+To install from PyPI (recommended) :
+
+    pip install rdbtools
+    
+To install from source : 
+
     git clone https://github.com/sripathikrishnan/redis-rdb-tools
     cd redis-rdb-tools
     sudo python setup.py install
