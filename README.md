@@ -12,6 +12,11 @@ Rdbtools is written in Python, though there are similar projects in other langua
 
 ## Installing rdbtools ##
 
+Pre-Requisites : 
+
+1. python 2.x and pip.
+2. redis-py is optional and only needed to run test cases.
+
 To install from PyPI (recommended) :
 
     pip install rdbtools
