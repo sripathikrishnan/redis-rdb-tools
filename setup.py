@@ -2,9 +2,20 @@
 import os
 from rdbtools import __version__
 
-f = open(os.path.join(os.path.dirname(__file__), 'README.md'))
-long_description = f.read()
-f.close()
+long_description = '''
+Parse Redis dump.rdb files, Analyze Memory, and Export Data to JSON
+
+Rdbtools is a parser for Redis' dump.rdb files. The parser generates events similar to an xml sax parser, and is very efficient memory wise.
+
+In addition, rdbtools provides utilities to :
+
+ 1. Generate a Memory Report of your data across all databases and keys
+ 2. Convert dump files to JSON
+ 3. Compare two dump files using standard diff tools
+
+Rdbtools is written in Python, though there are similar projects in other languages. See FAQs (https://github.com/sripathikrishnan/redis-rdb-tools/wiki/FAQs) for more information.
+'''
+
 
 sdict = {
     'name' : 'rdbtools',
@@ -29,7 +40,7 @@ sdict = {
             'redis-profiler = rdbtools.cli.redis_profiler:main'],
     },
     'classifiers' : [
-        'Development Status :: 2 - Development/Experimental',
+        'Development Status :: 4 - Beta',
         'Environment :: Console',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
