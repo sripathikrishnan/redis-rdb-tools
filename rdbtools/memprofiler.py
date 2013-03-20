@@ -133,6 +133,7 @@ class MemoryCallback(RdbCallback):
         self.end_key()
     
     def start_hash(self, key, length, expiry, info):
+        self._current_key = key
         self._current_encoding = info['encoding']
         self._current_length = length        
         size = self.sizeof_string(key)
@@ -147,6 +148,12 @@ class MemoryCallback(RdbCallback):
         else:
             raise Exception('start_hash', 'Could not find encoding or sizeof_value in info object %s' % info)
         self._current_size = size
+
+        if self._verbose_dump:
+            keyc = self._current_key.replace(":","-")
+            if os.path.isdir(keyc):
+                shutil.rmtree(keyc)
+            mkdir(keyc, 0777)
     
     def hset(self, key, field, value, sizeE):
         if(element_length(field) > self._len_largest_element) :
@@ -160,6 +167,11 @@ class MemoryCallback(RdbCallback):
             self._current_size += self.hashtable_entry_overhead()
             self._current_size += 2*self.robj_overhead()
             self._compressed_size += sizeE
+
+        if self._verbose_dump:
+            keyc = self._current_key.replace(":","-")
+            with open("%s/%s" % (keyc, field), "wb") as f:
+                f.write(value)
     
     def end_hash(self, key):
         record = MemoryRecord(self._dbnum, "hash", key, self._current_pos, self._current_size, self._compressed_size, self._current_encoding, self._current_length, self._len_largest_element)

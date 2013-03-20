@@ -309,7 +309,7 @@ class RdbParser :
                 if self.matches_filter(db_number) :
                     self._key, sizeE  = self.read_string(f)
                     if self.matches_filter(db_number, self._key, data_type):
-                        print ("Db %d, Key %s, type %s" % (db_number, self._key,data_type))
+                        print ("Db %d, Key %s, type %s" % (db_number, self._key, RdbParser.get_logical_type(data_type)))
                         self.read_object(f, data_type, pos)
                         cnt += 1
                     else:
@@ -359,7 +359,7 @@ class RdbParser :
                 if not quick:
                     val = self.lzf_decompress(f.read(length), ulength)
                 else:
-                    f.read(length)
+                    f.seek(length,1)
                     val = ''
         else :
             val = f.read(enc)
@@ -684,8 +684,9 @@ class RdbParser :
         if data_type is not None and (not self.get_logical_type(data_type) in self._filters['types']):
             return False
         return True
-    
-    def get_logical_type(self, data_type):
+
+    @classmethod
+    def get_logical_type(cls, data_type):
         return DATA_TYPE_MAPPING[data_type]
         
     def lzf_decompress(self, compressed, expected_length):
