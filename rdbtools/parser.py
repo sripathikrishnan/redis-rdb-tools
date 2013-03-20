@@ -64,7 +64,7 @@ class RdbCallback:
         """     
         pass
     
-    def set(self, key, value, expiry, info):
+    def set(self, key, value, expiry, info, sizeE):
         """
         Callback to handle a key with a string value and an optional expiry
         
@@ -90,7 +90,7 @@ class RdbCallback:
         """
         pass
     
-    def hset(self, key, field, value):
+    def hset(self, key, field, value, sizeE):
         """
         Callback to insert a field=value pair in an existing hash
         
@@ -127,7 +127,7 @@ class RdbCallback:
         """
         pass
 
-    def sadd(self, key, member):
+    def sadd(self, key, member, sizeE):
         """
         Callback to inser a new member to this set
         
@@ -163,7 +163,7 @@ class RdbCallback:
         """
         pass
     
-    def rpush(self, key, value) :
+    def rpush(self, key, value, index, sizeE) :
         """
         Callback to insert a new value into this list
         
@@ -202,7 +202,7 @@ class RdbCallback:
         """
         pass
     
-    def zadd(self, key, score, member):
+    def zadd(self, key, score, member, sizeE):
         """Callback to insert a new value into this sorted set
         
         `key` is the redis key for this sorted set
@@ -255,7 +255,7 @@ class RdbParser :
         If filter is None, results will not be filtered
         If dbs, keys or types is None or Empty, no filtering will be done on that axis
     """
-    def __init__(self, callback, filters = None) :
+    def __init__(self, callback, filters = None, quick=False) :
         """
             `callback` is the object that will receive parse events
         """
@@ -263,6 +263,7 @@ class RdbParser :
         self._key = None
         self._expiry = None
         self.init_filter(filters)
+        self._quick = quick
 
     def parse(self, filename):
         """
@@ -276,8 +277,13 @@ class RdbParser :
             
             is_first_database = True
             db_number = 0
-            while True :
+
+            skip(f, self._filters['pos'] - 9)
+            cnt = 0
+            while cnt < self._filters['max']:
                 self._expiry = None
+                pos = f.tell()
+                print ("Position %s, %s mb" % (pos,pos/1024.0/1024.0))
                 data_type = read_unsigned_char(f)
                 
                 if data_type == REDIS_RDB_OPCODE_EXPIRETIME_MS :
@@ -301,9 +307,11 @@ class RdbParser :
                     break
 
                 if self.matches_filter(db_number) :
-                    self._key = self.read_string(f)
+                    self._key, sizeE  = self.read_string(f)
                     if self.matches_filter(db_number, self._key, data_type):
-                        self.read_object(f, data_type)
+                        print ("Db %d, Key %s, type %s" % (db_number, self._key, RdbParser.get_logical_type(data_type)))
+                        self.read_object(f, data_type, pos)
+                        cnt += 1
                     else:
                         self.skip_object(f, data_type)
                 else :
@@ -330,33 +338,45 @@ class RdbParser :
     def read_length(self, f) :
         return self.read_length_with_encoding(f)[0]
 
-    def read_string(self, f) :
+    def read_string(self, f, quick = False) :
         tup = self.read_length_with_encoding(f)
-        length = tup[0]
+        enc = tup[0]
         is_encoded = tup[1]
         val = None
         if is_encoded :
-            if length == REDIS_RDB_ENC_INT8 :
+            if enc == REDIS_RDB_ENC_INT8 :
                 val = read_signed_char(f)
-            elif length == REDIS_RDB_ENC_INT16 :
+                length = 1
+            elif enc == REDIS_RDB_ENC_INT16 :
                 val = read_signed_short(f)
-            elif length == REDIS_RDB_ENC_INT32 :
+                length = 2
+            elif enc == REDIS_RDB_ENC_INT32 :
                 val = read_signed_int(f)
-            elif length == REDIS_RDB_ENC_LZF :
-                clen = self.read_length(f)
-                l = self.read_length(f)
-                val = self.lzf_decompress(f.read(clen), l)
+                length = 3
+            elif enc == REDIS_RDB_ENC_LZF :
+                length = self.read_length(f)
+                ulength = self.read_length(f)
+                if not quick:
+                    val = self.lzf_decompress(f.read(length), ulength)
+                else:
+                    f.seek(length,1)
+                    val = ''
         else :
-            val = f.read(length)
-        return val
+            val = f.read(enc)
+            length = enc
+        return val, length
 
     # Read an object for the stream
     # f is the redis file 
     # enc_type is the type of object
-    def read_object(self, f, enc_type) :
+    def read_object(self, f, enc_type, pos) :
+
+
+        self._callback.start_object(pos)
+
         if enc_type == REDIS_RDB_TYPE_STRING :
-            val = self.read_string(f)
-            self._callback.set(self._key, val, self._expiry, info={'encoding':'string'})
+            val, sizeE = self.read_string(f)
+            self._callback.set(self._key, val, self._expiry, info={'encoding':'string'}, sizeE=sizeE)
         elif enc_type == REDIS_RDB_TYPE_LIST :
             # A redis list is just a sequence of strings
             # We successively read strings from the stream and create a list from it
@@ -365,8 +385,8 @@ class RdbParser :
             length = self.read_length(f)
             self._callback.start_list(self._key, length, self._expiry, info={'encoding':'linkedlist' })
             for count in xrange(0, length) :
-                val = self.read_string(f)
-                self._callback.rpush(self._key, val)
+                val, sizeE = self.read_string(f,  self._quick)
+                self._callback.rpush(self._key, val, count, sizeE=sizeE)
             self._callback.end_list(self._key)
         elif enc_type == REDIS_RDB_TYPE_SET :
             # A redis list is just a sequence of strings
@@ -375,38 +395,43 @@ class RdbParser :
             length = self.read_length(f)
             self._callback.start_set(self._key, length, self._expiry, info={'encoding':'hashtable'})
             for count in xrange(0, length) :
-                val = self.read_string(f)
-                self._callback.sadd(self._key, val)
+                val, sizeE = self.read_string(f,  self._quick)
+                self._callback.sadd(self._key, val, sizeE=sizeE)
             self._callback.end_set(self._key)
         elif enc_type == REDIS_RDB_TYPE_ZSET :
             length = self.read_length(f)
             self._callback.start_sorted_set(self._key, length, self._expiry, info={'encoding':'skiplist'})
             for count in xrange(0, length) :
-                val = self.read_string(f)
+                val, sizeE = self.read_string(f, self._quick)
                 dbl_length = read_unsigned_char(f)
                 score = f.read(dbl_length)
                 if isinstance(score, str):
                     score = float(score)
-                self._callback.zadd(self._key, score, val)
+                self._callback.zadd(self._key, score, val, sizeE=sizeE)
             self._callback.end_sorted_set(self._key)
         elif enc_type == REDIS_RDB_TYPE_HASH :
             length = self.read_length(f)
             self._callback.start_hash(self._key, length, self._expiry, info={'encoding':'hashtable'})
             for count in xrange(0, length) :
-                field = self.read_string(f)
-                value = self.read_string(f)
-                self._callback.hset(self._key, field, value)
+                field, sizek = self.read_string(f)
+                value, sizeE = self.read_string(f, self._quick)
+                self._callback.hset(self._key, field, value, sizeE=sizeE)
             self._callback.end_hash(self._key)
         elif enc_type == REDIS_RDB_TYPE_HASH_ZIPMAP :
             self.read_zipmap(f)
+            print "read_zipmap %s" % self._key
         elif enc_type == REDIS_RDB_TYPE_LIST_ZIPLIST :
             self.read_ziplist(f)
+            print "read_ziplist %s" % self._key
         elif enc_type == REDIS_RDB_TYPE_SET_INTSET :
             self.read_intset(f)
+            print "read_intset %s" % self._key
         elif enc_type == REDIS_RDB_TYPE_ZSET_ZIPLIST :
             self.read_zset_from_ziplist(f)
+            print "read_zset_from_ziplist %s" % self._key
         elif enc_type == REDIS_RDB_TYPE_HASH_ZIPLIST :
             self.read_hash_from_ziplist(f)
+            print "read_hash_from_ziplist %s" % self._key
         else :
             raise Exception('read_object', 'Invalid object type %d for key %s' % (enc_type, self._key))
 
@@ -464,7 +489,7 @@ class RdbParser :
 
 
     def read_intset(self, f) :
-        raw_string = self.read_string(f)
+        raw_string, sizeE = self.read_string(f)
         buff = StringIO(raw_string)
         encoding = read_unsigned_int(buff)
         num_entries = read_unsigned_int(buff)
@@ -478,11 +503,11 @@ class RdbParser :
                 entry = read_unsigned_short(buff)
             else :
                 raise Exception('read_intset', 'Invalid encoding %d for key %s' % (encoding, self._key))
-            self._callback.sadd(self._key, entry)
+            self._callback.sadd(self._key, entry, encoding)
         self._callback.end_set(self._key)
 
     def read_ziplist(self, f) :
-        raw_string = self.read_string(f)
+        raw_string, sizeE = self.read_string(f)
         buff = StringIO(raw_string)
         zlbytes = read_unsigned_int(buff)
         tail_offset = read_unsigned_int(buff)
@@ -490,14 +515,14 @@ class RdbParser :
         self._callback.start_list(self._key, num_entries, self._expiry, info={'encoding':'ziplist', 'sizeof_value':len(raw_string)})
         for x in xrange(0, num_entries) :
             val = self.read_ziplist_entry(buff)
-            self._callback.rpush(self._key, val)
+            self._callback.rpush(self._key, val, 99) #@TODO
         zlist_end = read_unsigned_char(buff)
         if zlist_end != 255 : 
             raise Exception('read_ziplist', "Invalid zip list end - %d for key %s" % (zlist_end, self._key))
         self._callback.end_list(self._key)
 
     def read_zset_from_ziplist(self, f) :
-        raw_string = self.read_string(f)
+        raw_string, size = self.read_string(f)
         buff = StringIO(raw_string)
         zlbytes = read_unsigned_int(buff)
         tail_offset = read_unsigned_int(buff)
@@ -511,14 +536,14 @@ class RdbParser :
             score = self.read_ziplist_entry(buff)
             if isinstance(score, str) :
                 score = float(score)
-            self._callback.zadd(self._key, score, member)
+            self._callback.zadd(self._key, score, member, 99) #@TODO
         zlist_end = read_unsigned_char(buff)
         if zlist_end != 255 : 
             raise Exception('read_zset_from_ziplist', "Invalid zip list end - %d for key %s" % (zlist_end, self._key))
         self._callback.end_sorted_set(self._key)
 
     def read_hash_from_ziplist(self, f) :
-        raw_string = self.read_string(f)
+        raw_string, size = self.read_string(f)
         buff = StringIO(raw_string)
         zlbytes = read_unsigned_int(buff)
         tail_offset = read_unsigned_int(buff)
@@ -530,7 +555,7 @@ class RdbParser :
         for x in xrange(0, num_entries) :
             field = self.read_ziplist_entry(buff)
             value = self.read_ziplist_entry(buff)
-            self._callback.hset(self._key, field, value)
+            self._callback.hset(self._key, field, value,  99) #@TODO
         zlist_end = read_unsigned_char(buff)
         if zlist_end != 255 : 
             raise Exception('read_hash_from_ziplist', "Invalid zip list end - %d for key %s" % (zlist_end, self._key))
@@ -570,7 +595,7 @@ class RdbParser :
         return value
         
     def read_zipmap(self, f) :
-        raw_string = self.read_string(f)
+        raw_string, size = self.read_string(f)
         buff = io.BytesIO(bytearray(raw_string))
         num_entries = read_unsigned_char(buff)
         self._callback.start_hash(self._key, num_entries, self._expiry, info={'encoding':'zipmap', 'sizeof_value':len(raw_string)})
@@ -590,7 +615,7 @@ class RdbParser :
                 pass
             
             skip(buff, free)
-            self._callback.hset(self._key, key, value)
+            self._callback.hset(self._key, key, value, next_length) #@TODO
         self._callback.end_hash(self._key)
 
     def read_zipmap_next_length(self, f) :
@@ -638,6 +663,17 @@ class RdbParser :
             self._filters['types'] = [str(x) for x in filters['types']]
         else:
             raise Exception('init_filter', 'invalid value for types in filter %s' %filters['types'])
+
+        if 'max' in filters:
+            self._filters['max'] = int(filters['max'])
+        else:
+            raise Exception('max parameter needs to be specificied')
+
+        if 'pos' in filters:
+            self._filters['pos'] = int(filters['pos'])
+        else:
+            raise Exception('pos parameter needs to be specificied')
+
         
     def matches_filter(self, db_number, key=None, data_type=None):
         if self._filters['dbs'] and (not db_number in self._filters['dbs']):
@@ -648,8 +684,9 @@ class RdbParser :
         if data_type is not None and (not self.get_logical_type(data_type) in self._filters['types']):
             return False
         return True
-    
-    def get_logical_type(self, data_type):
+
+    @classmethod
+    def get_logical_type(cls, data_type):
         return DATA_TYPE_MAPPING[data_type]
         
     def lzf_decompress(self, compressed, expected_length):
@@ -688,7 +725,7 @@ class RdbParser :
 
 def skip(f, free):
     if free :
-        f.read(free)
+        f.seek(free,1)
 
 def ntohl(f) :
     val = read_unsigned_int(f)

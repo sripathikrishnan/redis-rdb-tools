@@ -1,6 +1,9 @@
 from collections import namedtuple
+from os import mkdir
+import os
 import random
 import json
+import shutil
 
 from rdbtools.parser import RdbCallback
 from rdbtools.callbacks import encode_key
@@ -9,7 +12,7 @@ ZSKIPLIST_MAXLEVEL=32
 ZSKIPLIST_P=0.25
 REDIS_SHARED_INTEGERS = 10000
 
-MemoryRecord = namedtuple('MemoryRecord', ['database', 'type', 'key', 'bytes', 'encoding','size', 'len_largest_element'])
+MemoryRecord = namedtuple('MemoryRecord', ['database', 'type', 'key', 'file_pos', 'bytes', 'compressed_size', 'encoding','size', 'len_largest_element'])
 
 class StatsAggregator():
     def __init__(self, key_groupings = None):
@@ -70,24 +73,28 @@ class StatsAggregator():
 class PrintAllKeys():
     def __init__(self, out):
         self._out = out
-        self._out.write("%s,%s,%s,%s,%s,%s,%s\n" % ("database", "type", "key", 
-                                                 "size_in_bytes", "encoding", "num_elements", "len_largest_element"))
+        self._out.write("%s,%s,%s,%s,%s,%s,%s,%s,%s\n" % ("database", "type", "key", "file_pos",
+                                                 "size_in_bytes", "compressed_size", "encoding", "num_elements", "len_largest_element"))
     
     def next_record(self, record) :
-        self._out.write("%d,%s,%s,%d,%s,%d,%d\n" % (record.database, record.type, encode_key(record.key), 
-                                                 record.bytes, record.encoding, record.size, record.len_largest_element))
+        self._out.write("%d,%s,%s,%d,%d,%d,%s,%d,%d\n" % (record.database, record.type, encode_key(record.key), record.file_pos,
+                                                 record.bytes, record.compressed_size, record.encoding, record.size, record.len_largest_element))
     
 class MemoryCallback(RdbCallback):
     '''Calculates the memory used if this rdb file were loaded into RAM
         The memory usage is approximate, and based on heuristics.
     '''
-    def __init__(self, stream, architecture):
+    def __init__(self, stream, architecture, verbose_dump=False):
         self._stream = stream
         self._dbnum = 0
         self._current_size = 0
+        self._compressed_size = 0
         self._current_encoding = None
         self._current_length = 0
         self._len_largest_element = 0
+        self._file_pos = 0
+        self._verbose_dump = verbose_dump
+        self._current_key = None
         
         if architecture == 64 or architecture == '64':
             self._pointer_size = 8
@@ -105,19 +112,28 @@ class MemoryCallback(RdbCallback):
         
     def end_rdb(self):
         pass
+
+
+    def start_object(self, file_pos):
+        """
+        Called once we know we've found a new object, useful to store things
+        common to all other types.
+        """
+        self._current_pos = file_pos
+
        
-    def set(self, key, value, expiry, info):
+    def set(self, key, value, expiry, info, sizeE):
         self._current_encoding = info['encoding']
         size = self.sizeof_string(key) + self.sizeof_string(value) + self.top_level_object_overhead()
         size += 2*self.robj_overhead()
         size += self.key_expiry_overhead(expiry)
-        
         length = element_length(value)
-        record = MemoryRecord(self._dbnum, "string", key, size, self._current_encoding, length, length)
+        record = MemoryRecord(self._dbnum, "string", key, self._current_pos, size, sizeE, self._current_encoding, length, length)
         self._stream.next_record(record)
         self.end_key()
     
     def start_hash(self, key, length, expiry, info):
+        self._current_key = key
         self._current_encoding = info['encoding']
         self._current_length = length        
         size = self.sizeof_string(key)
@@ -132,8 +148,14 @@ class MemoryCallback(RdbCallback):
         else:
             raise Exception('start_hash', 'Could not find encoding or sizeof_value in info object %s' % info)
         self._current_size = size
+
+        if self._verbose_dump:
+            keyc = self._current_key.replace(":","-")
+            if os.path.isdir(keyc):
+                shutil.rmtree(keyc)
+            mkdir(keyc, 0777)
     
-    def hset(self, key, field, value):
+    def hset(self, key, field, value, sizeE):
         if(element_length(field) > self._len_largest_element) :
             self._len_largest_element = element_length(field)
         if(element_length(value) > self._len_largest_element) :
@@ -144,9 +166,15 @@ class MemoryCallback(RdbCallback):
             self._current_size += self.sizeof_string(value)
             self._current_size += self.hashtable_entry_overhead()
             self._current_size += 2*self.robj_overhead()
+            self._compressed_size += sizeE
+
+        if self._verbose_dump:
+            keyc = self._current_key.replace(":","-")
+            with open("%s/%s" % (keyc, field), "wb") as f:
+                f.write(value)
     
     def end_hash(self, key):
-        record = MemoryRecord(self._dbnum, "hash", key, self._current_size, self._current_encoding, self._current_length, self._len_largest_element)
+        record = MemoryRecord(self._dbnum, "hash", key, self._current_pos, self._current_size, self._compressed_size, self._current_encoding, self._current_length, self._len_largest_element)
         self._stream.next_record(record)
         self.end_key()
     
@@ -154,7 +182,7 @@ class MemoryCallback(RdbCallback):
         # A set is exactly like a hashmap
         self.start_hash(key, cardinality, expiry, info)
 
-    def sadd(self, key, member):
+    def sadd(self, key, member, sizeE):
         if(element_length(member) > self._len_largest_element) :
             self._len_largest_element = element_length(member)
             
@@ -162,13 +190,15 @@ class MemoryCallback(RdbCallback):
             self._current_size += self.sizeof_string(member)
             self._current_size += self.hashtable_entry_overhead()
             self._current_size += self.robj_overhead()
+            self._compressed_size += sizeE
     
     def end_set(self, key):
-        record = MemoryRecord(self._dbnum, "set", key, self._current_size, self._current_encoding, self._current_length, self._len_largest_element)
+        record = MemoryRecord(self._dbnum, "set", key, self._current_pos, self._current_size,self._compressed_size, self._current_encoding, self._current_length, self._len_largest_element)
         self._stream.next_record(record)
         self.end_key()
     
     def start_list(self, key, length, expiry, info):
+        self._current_key = key
         self._current_length = length
         self._current_encoding = info['encoding']
         size = self.sizeof_string(key)
@@ -183,18 +213,29 @@ class MemoryCallback(RdbCallback):
         else:
             raise Exception('start_list', 'Could not find encoding or sizeof_value in info object %s' % info)
         self._current_size = size
+
+        if self._verbose_dump:
+            if os.path.isdir(self._current_key):
+                shutil.rmtree(self._current_key)
+            mkdir(self._current_key, 0777)
             
-    def rpush(self, key, value) :
-        if(element_length(value) > self._len_largest_element) :
+    def rpush(self, key, value, index, sizeE) :
+        if element_length(value) > self._len_largest_element:
             self._len_largest_element = element_length(value)
-        
+
         if self._current_encoding == 'linkedlist':
             self._current_size += self.sizeof_string(value)
             self._current_size += self.linkedlist_entry_overhead()
             self._current_size += self.robj_overhead()
+            self._compressed_size += sizeE
+
+
+        if self._verbose_dump:
+            with open("%s/%s" % (self._current_key, index), "wb") as f:
+                f.write(value)
     
     def end_list(self, key):
-        record = MemoryRecord(self._dbnum, "list", key, self._current_size, self._current_encoding, self._current_length, self._len_largest_element)
+        record = MemoryRecord(self._dbnum, "list", key, self._current_pos, self._current_size, self._compressed_size, self._current_encoding, self._current_length, self._len_largest_element)
         self._stream.next_record(record)
         self.end_key()
     
@@ -214,7 +255,7 @@ class MemoryCallback(RdbCallback):
             raise Exception('start_sorted_set', 'Could not find encoding or sizeof_value in info object %s' % info)
         self._current_size = size
     
-    def zadd(self, key, score, member):
+    def zadd(self, key, score, member, sizeE):
         if(element_length(member) > self._len_largest_element):
             self._len_largest_element = element_length(member)
         
@@ -223,16 +264,19 @@ class MemoryCallback(RdbCallback):
             self._current_size += self.sizeof_string(member)
             self._current_size += 2*self.robj_overhead()
             self._current_size += self.skiplist_entry_overhead()
+            self._compressed_size += sizeE
     
     def end_sorted_set(self, key):
-        record = MemoryRecord(self._dbnum, "sortedset", key, self._current_size, self._current_encoding, self._current_length, self._len_largest_element)
+        record = MemoryRecord(self._dbnum, "sortedset", key, self._current_pos, self._current_size, self._compressed_size , self._current_encoding, self._current_length, self._len_largest_element)
         self._stream.next_record(record)
         self.end_key()
+
         
     def end_key(self):
         self._current_encoding = None
         self._current_size = 0
         self._len_largest_element = 0
+        self._compressed_size = 0
     
     def sizeof_string(self, string):
         # See struct sdshdr over here https://github.com/antirez/redis/blob/unstable/src/sds.h
