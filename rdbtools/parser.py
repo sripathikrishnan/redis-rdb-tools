@@ -1,3 +1,4 @@
+from __future__ import with_statement
 import struct
 import io
 import sys
@@ -8,7 +9,7 @@ try :
     from StringIO import StringIO
 except ImportError:
     from io import StringIO
-    
+
 REDIS_RDB_6BITLEN = 0
 REDIS_RDB_14BITLEN = 1
 REDIS_RDB_32BITLEN = 2
@@ -36,202 +37,202 @@ REDIS_RDB_ENC_INT32 = 2
 REDIS_RDB_ENC_LZF = 3
 
 DATA_TYPE_MAPPING = {
-    0 : "string", 1 : "list", 2 : "set", 3 : "sortedset", 4 : "hash", 
+    0 : "string", 1 : "list", 2 : "set", 3 : "sortedset", 4 : "hash",
     9 : "hash", 10 : "list", 11 : "set", 12 : "sortedset", 13 : "hash"}
 
 class RdbCallback:
     """
     A Callback to handle events as the Redis dump file is parsed.
     This callback provides a serial and fast access to the dump file.
-    
+
     """
     def start_rdb(self):
         """
         Called once we know we are dealing with a valid redis dump file
-        
+
         """
         pass
-        
+
     def start_database(self, db_number):
         """
-        Called to indicate database the start of database `db_number` 
-        
-        Once a database starts, another database cannot start unless 
+        Called to indicate database the start of database `db_number`
+
+        Once a database starts, another database cannot start unless
         the first one completes and then `end_database` method is called
-        
+
         Typically, callbacks store the current database number in a class variable
-        
-        """     
+
+        """
         pass
-    
+
     def set(self, key, value, expiry, info):
         """
         Callback to handle a key with a string value and an optional expiry
-        
+
         `key` is the redis key
         `value` is a string or a number
         `expiry` is a datetime object. None and can be None
         `info` is a dictionary containing additional information about this object.
-        
+
         """
         pass
-    
+
     def start_hash(self, key, length, expiry, info):
         """Callback to handle the start of a hash
-        
+
         `key` is the redis key
-        `length` is the number of elements in this hash. 
+        `length` is the number of elements in this hash.
         `expiry` is a `datetime` object. None means the object does not expire
         `info` is a dictionary containing additional information about this object.
-        
+
         After `start_hash`, the method `hset` will be called with this `key` exactly `length` times.
         After that, the `end_hash` method will be called.
-        
+
         """
         pass
-    
+
     def hset(self, key, field, value):
         """
         Callback to insert a field=value pair in an existing hash
-        
+
         `key` is the redis key for this hash
         `field` is a string
         `value` is the value to store for this field
-        
+
         """
         pass
-    
+
     def end_hash(self, key):
         """
         Called when there are no more elements in the hash
-        
+
         `key` is the redis key for the hash
-        
+
         """
         pass
-    
+
     def start_set(self, key, cardinality, expiry, info):
         """
         Callback to handle the start of a hash
-        
+
         `key` is the redis key
         `cardinality` is the number of elements in this set
         `expiry` is a `datetime` object. None means the object does not expire
         `info` is a dictionary containing additional information about this object.
-        
+
         After `start_set`, the  method `sadd` will be called with `key` exactly `cardinality` times
         After that, the `end_set` method will be called to indicate the end of the set.
-        
+
         Note : This callback handles both Int Sets and Regular Sets
-        
+
         """
         pass
 
     def sadd(self, key, member):
         """
         Callback to inser a new member to this set
-        
+
         `key` is the redis key for this set
         `member` is the member to insert into this set
-        
+
         """
         pass
-    
+
     def end_set(self, key):
         """
-        Called when there are no more elements in this set 
-        
+        Called when there are no more elements in this set
+
         `key` the redis key for this set
-        
+
         """
         pass
-    
+
     def start_list(self, key, length, expiry, info):
         """
         Callback to handle the start of a list
-        
+
         `key` is the redis key for this list
         `length` is the number of elements in this list
         `expiry` is a `datetime` object. None means the object does not expire
         `info` is a dictionary containing additional information about this object.
-        
+
         After `start_list`, the method `rpush` will be called with `key` exactly `length` times
         After that, the `end_list` method will be called to indicate the end of the list
-        
+
         Note : This callback handles both Zip Lists and Linked Lists.
-        
+
         """
         pass
-    
+
     def rpush(self, key, value) :
         """
         Callback to insert a new value into this list
-        
+
         `key` is the redis key for this list
         `value` is the value to be inserted
-        
+
         Elements must be inserted to the end (i.e. tail) of the existing list.
-        
+
         """
         pass
-    
+
     def end_list(self, key):
         """
         Called when there are no more elements in this list
-        
+
         `key` the redis key for this list
-        
+
         """
         pass
-    
+
     def start_sorted_set(self, key, length, expiry, info):
         """
         Callback to handle the start of a sorted set
-        
+
         `key` is the redis key for this sorted
         `length` is the number of elements in this sorted set
         `expiry` is a `datetime` object. None means the object does not expire
         `info` is a dictionary containing additional information about this object.
-        
-        After `start_sorted_set`, the method `zadd` will be called with `key` exactly `length` times. 
+
+        After `start_sorted_set`, the method `zadd` will be called with `key` exactly `length` times.
         Also, `zadd` will be called in a sorted order, so as to preserve the ordering of this sorted set.
         After that, the `end_sorted_set` method will be called to indicate the end of this sorted set
-        
+
         Note : This callback handles sorted sets in that are stored as ziplists or skiplists
-        
+
         """
         pass
-    
+
     def zadd(self, key, score, member):
         """Callback to insert a new value into this sorted set
-        
+
         `key` is the redis key for this sorted set
         `score` is the score for this `value`
         `value` is the element being inserted
         """
         pass
-    
+
     def end_sorted_set(self, key):
         """
         Called when there are no more elements in this sorted set
-        
+
         `key` is the redis key for this sorted set
-        
+
         """
         pass
-    
+
     def end_database(self, db_number):
         """
         Called when the current database ends
-        
-        After `end_database`, one of the methods are called - 
+
+        After `end_database`, one of the methods are called -
         1) `start_database` with a new database number
             OR
         2) `end_rdb` to indicate we have reached the end of the file
-        
+
         """
         pass
-    
+
     def end_rdb(self):
         """Called to indicate we have completed parsing of the dump file"""
         pass
@@ -239,19 +240,19 @@ class RdbCallback:
 class RdbParser :
     """
     A Parser for Redis RDB Files
-    
+
     This class is similar in spirit to a SAX parser for XML files.
     The dump file is parsed sequentially. As and when objects are discovered,
-    appropriate methods in the callback are called. 
-        
+    appropriate methods in the callback are called.
+
     Typical usage :
         callback = MyRdbCallback() # Typically a subclass of RdbCallback
         parser = RdbParser(callback)
         parser.parse('/var/redis/6379/dump.rdb')
-    
+
     filter is a dictionary with the following keys
         {"dbs" : [0, 1], "keys" : "foo.*", "types" : ["hash", "set", "sortedset", "list", "string"]}
-        
+
         If filter is None, results will not be filtered
         If dbs, keys or types is None or Empty, no filtering will be done on that axis
     """
@@ -266,27 +267,27 @@ class RdbParser :
 
     def parse(self, filename):
         """
-        Parse a redis rdb dump file, and call methods in the 
+        Parse a redis rdb dump file, and call methods in the
         callback object during the parsing operation.
         """
         with open(filename, "rb") as f:
             self.verify_magic_string(f.read(5))
             self.verify_version(f.read(4))
             self._callback.start_rdb()
-            
+
             is_first_database = True
             db_number = 0
             while True :
                 self._expiry = None
                 data_type = read_unsigned_char(f)
-                
+
                 if data_type == REDIS_RDB_OPCODE_EXPIRETIME_MS :
                     self._expiry = to_datetime(read_unsigned_long(f) * 1000)
                     data_type = read_unsigned_char(f)
                 elif data_type == REDIS_RDB_OPCODE_EXPIRETIME :
                     self._expiry = to_datetime(read_unsigned_int(f) * 1000000)
                     data_type = read_unsigned_char(f)
-                
+
                 if data_type == REDIS_RDB_OPCODE_SELECTDB :
                     if not is_first_database :
                         self._callback.end_database(db_number)
@@ -294,7 +295,7 @@ class RdbParser :
                     db_number = self.read_length(f)
                     self._callback.start_database(db_number)
                     continue
-                
+
                 if data_type == REDIS_RDB_OPCODE_EOF :
                     self._callback.end_database(db_number)
                     self._callback.end_rdb()
@@ -351,7 +352,7 @@ class RdbParser :
         return val
 
     # Read an object for the stream
-    # f is the redis file 
+    # f is the redis file
     # enc_type is the type of object
     def read_object(self, f, enc_type) :
         if enc_type == REDIS_RDB_TYPE_STRING :
@@ -360,7 +361,7 @@ class RdbParser :
         elif enc_type == REDIS_RDB_TYPE_LIST :
             # A redis list is just a sequence of strings
             # We successively read strings from the stream and create a list from it
-            # The lists are in order i.e. the first string is the head, 
+            # The lists are in order i.e. the first string is the head,
             # and the last string is the tail of the list
             length = self.read_length(f)
             self._callback.start_list(self._key, length, self._expiry, info={'encoding':'linkedlist' })
@@ -432,7 +433,7 @@ class RdbParser :
                 bytes_to_skip = clen
         else :
             bytes_to_skip = length
-        
+
         skip(f, bytes_to_skip)
 
     def skip_object(self, f, enc_type):
@@ -492,7 +493,7 @@ class RdbParser :
             val = self.read_ziplist_entry(buff)
             self._callback.rpush(self._key, val)
         zlist_end = read_unsigned_char(buff)
-        if zlist_end != 255 : 
+        if zlist_end != 255 :
             raise Exception('read_ziplist', "Invalid zip list end - %d for key %s" % (zlist_end, self._key))
         self._callback.end_list(self._key)
 
@@ -513,7 +514,7 @@ class RdbParser :
                 score = float(score)
             self._callback.zadd(self._key, score, member)
         zlist_end = read_unsigned_char(buff)
-        if zlist_end != 255 : 
+        if zlist_end != 255 :
             raise Exception('read_zset_from_ziplist', "Invalid zip list end - %d for key %s" % (zlist_end, self._key))
         self._callback.end_sorted_set(self._key)
 
@@ -532,11 +533,11 @@ class RdbParser :
             value = self.read_ziplist_entry(buff)
             self._callback.hset(self._key, field, value)
         zlist_end = read_unsigned_char(buff)
-        if zlist_end != 255 : 
+        if zlist_end != 255 :
             raise Exception('read_hash_from_ziplist', "Invalid zip list end - %d for key %s" % (zlist_end, self._key))
         self._callback.end_hash(self._key)
-    
-    
+
+
     def read_ziplist_entry(self, f) :
         length = 0
         value = None
@@ -568,7 +569,7 @@ class RdbParser :
         else :
             raise Exception('read_ziplist_entry', 'Invalid entry_header %d for key %s' % (entry_header, self._key))
         return value
-        
+
     def read_zipmap(self, f) :
         raw_string = self.read_string(f)
         buff = io.BytesIO(bytearray(raw_string))
@@ -581,14 +582,14 @@ class RdbParser :
             key = buff.read(next_length)
             next_length = self.read_zipmap_next_length(buff)
             if next_length is None :
-                raise Exception('read_zip_map', 'Unexepcted end of zip map for key %s' % self._key)        
+                raise Exception('read_zip_map', 'Unexepcted end of zip map for key %s' % self._key)
             free = read_unsigned_char(buff)
             value = buff.read(next_length)
             try:
                 value = int(value)
             except ValueError:
                 pass
-            
+
             skip(buff, free)
             self._callback.hset(self._key, key, value)
         self._callback.end_hash(self._key)
@@ -608,7 +609,7 @@ class RdbParser :
 
     def verify_version(self, version_str) :
         version = int(version_str)
-        if version < 1 or version > 6 : 
+        if version < 1 or version > 6 :
             raise Exception('verify_version', 'Invalid RDB version number %d' % version)
 
     def init_filter(self, filters):
@@ -624,7 +625,7 @@ class RdbParser :
             self._filters['dbs'] = [int(x) for x in filters['dbs']]
         else:
             raise Exception('init_filter', 'invalid value for dbs in filter %s' %filters['dbs'])
-        
+
         if not ('keys' in filters and filters['keys']):
             self._filters['keys'] = re.compile(".*")
         else:
@@ -638,7 +639,7 @@ class RdbParser :
             self._filters['types'] = [str(x) for x in filters['types']]
         else:
             raise Exception('init_filter', 'invalid value for types in filter %s' %filters['types'])
-        
+
     def matches_filter(self, db_number, key=None, data_type=None):
         if self._filters['dbs'] and (not db_number in self._filters['dbs']):
             return False
@@ -648,17 +649,17 @@ class RdbParser :
         if data_type is not None and (not self.get_logical_type(data_type) in self._filters['types']):
             return False
         return True
-    
+
     def get_logical_type(self, data_type):
         return DATA_TYPE_MAPPING[data_type]
-        
+
     def lzf_decompress(self, compressed, expected_length):
         in_stream = bytearray(compressed)
         in_len = len(in_stream)
         in_index = 0
         out_stream = bytearray()
         out_index = 0
-    
+
         while in_index < in_len :
             ctrl = in_stream[in_index]
             if not isinstance(ctrl, int) :
@@ -675,7 +676,7 @@ class RdbParser :
                 if length == 7 :
                     length = length + in_stream[in_index]
                     in_index = in_index + 1
-                
+
                 ref = out_index - ((ctrl & 0x1f) << 8) - in_stream[in_index] - 1
                 in_index = in_index + 1
                 for x in xrange(0, length + 2) :
@@ -705,22 +706,22 @@ def to_datetime(usecs_since_epoch):
     dt = datetime.datetime.utcfromtimestamp(seconds_since_epoch)
     delta = datetime.timedelta(microseconds = useconds)
     return dt + delta
-    
+
 def read_signed_char(f) :
     return struct.unpack('b', f.read(1))[0]
-    
+
 def read_unsigned_char(f) :
     return struct.unpack('B', f.read(1))[0]
 
 def read_signed_short(f) :
     return struct.unpack('h', f.read(2))[0]
-        
+
 def read_unsigned_short(f) :
     return struct.unpack('H', f.read(2))[0]
 
 def read_signed_int(f) :
     return struct.unpack('i', f.read(4))[0]
-    
+
 def read_unsigned_int(f) :
     return struct.unpack('I', f.read(4))[0]
 
@@ -731,10 +732,10 @@ def read_24bit_signed_number(f):
     s = '0' + f.read(3)
     num = struct.unpack('i', s)[0]
     return num >> 8
-    
+
 def read_signed_long(f) :
     return struct.unpack('q', f.read(8))[0]
-    
+
 def read_unsigned_long(f) :
     return struct.unpack('Q', f.read(8))[0]
 
@@ -749,53 +750,53 @@ def string_as_hexcode(string) :
 class DebugCallback(RdbCallback) :
     def start_rdb(self):
         print('[')
-    
+
     def start_database(self, db_number):
         print('{')
-    
+
     def set(self, key, value, expiry):
         print('"%s" : "%s"' % (str(key), str(value)))
-    
+
     def start_hash(self, key, length, expiry):
         print('"%s" : {' % str(key))
         pass
-    
+
     def hset(self, key, field, value):
         print('"%s" : "%s"' % (str(field), str(value)))
-    
+
     def end_hash(self, key):
         print('}')
-    
+
     def start_set(self, key, cardinality, expiry):
         print('"%s" : [' % str(key))
 
     def sadd(self, key, member):
         print('"%s"' % str(member))
-    
+
     def end_set(self, key):
         print(']')
-    
+
     def start_list(self, key, length, expiry):
         print('"%s" : [' % str(key))
-    
+
     def rpush(self, key, value) :
         print('"%s"' % str(value))
-    
+
     def end_list(self, key):
         print(']')
-    
+
     def start_sorted_set(self, key, length, expiry):
         print('"%s" : {' % str(key))
-    
+
     def zadd(self, key, score, member):
         print('"%s" : "%s"' % (str(member), str(score)))
-    
+
     def end_sorted_set(self, key):
         print('}')
-    
+
     def end_database(self, db_number):
         print('}')
-    
+
     def end_rdb(self):
         print(']')
 
