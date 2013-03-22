@@ -112,10 +112,6 @@ def namedtuple(typename, field_names, verbose=False, rename=False):
     return result
 
 
-
-
-
-
 if __name__ == '__main__':
     # verify that instances can be pickled
     from cPickle import loads, dumps
