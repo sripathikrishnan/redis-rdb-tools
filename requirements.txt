@@ -1,2 +1,3 @@
 redis==2.4.12
 wsgiref==0.1.2
+simplejson==2.0.6

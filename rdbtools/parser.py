@@ -578,7 +578,6 @@ class RdbParser :
 
     def read_zipmap(self, f) :
         raw_string = self.read_string(f)
-        # raw_byte_arr = bytearray(raw_string)
         raw_byte_arr = array.array('B', raw_string)
         buff = io.BytesIO(raw_byte_arr.tostring())
         num_entries = read_unsigned_char(buff)

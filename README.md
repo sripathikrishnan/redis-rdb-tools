@@ -12,7 +12,7 @@ Rdbtools is written in Python, though there are similar projects in other langua
 
 ## Installing rdbtools ##
 
-Pre-Requisites : 
+Pre-Requisites :
 
 1. python 2.x and pip.
 2. redis-py is optional and only needed to run test cases.
@@ -20,8 +20,8 @@ Pre-Requisites :
 To install from PyPI (recommended) :
 
     pip install rdbtools
-    
-To install from source : 
+
+To install from source :
 
     git clone https://github.com/sripathikrishnan/redis-rdb-tools
     cd redis-rdb-tools
@@ -32,12 +32,12 @@ To install from source :
 Parse the dump file and print the JSON on standard output
 
     rdb --command json /var/redis/6379/dump.rdb
-    
+
 Only process keys that match the regex
 
     rdb --command json --key "user.*" /var/redis/6379/dump.rdb
-    
-Only process hashes starting with "a", in database 2 
+
+Only process hashes starting with "a", in database 2
 
     rdb --command json --db 2 --type hash --key "a.*" /var/redis/6379/dump.rdb
 
@@ -49,14 +49,14 @@ Running with the  `-c memory` generates a CSV report with the approximate memory
     rdb -c memory /var/redis/6379/dump.rdb > memory.csv
 
 
-The generated CSV has the following columns - Database Number, Data Type, Key, Memory Used in bytes and Encoding. 
+The generated CSV has the following columns - Database Number, Data Type, Key, Memory Used in bytes and Encoding.
 Memory usage includes the key, the value and any other overheads.
 
 Note that the memory usage is approximate. In general, the actual memory used will be slightly higher than what is reported.
 
 You can filter the report on keys or database number or data type.
 
-The memory report should help you detect memory leaks caused by your application logic. It will also help you optimize Redis memory usage. 
+The memory report should help you detect memory leaks caused by your application logic. It will also help you optimize Redis memory usage.
 
 ## Find Memory used by a Single Key ##
 
@@ -67,9 +67,9 @@ In such cases, you can use the `redis-memory-for-key` command
 Example :
 
     redis-memory-for-key person:1
-    
+
     redis-memory-for-key -s localhost -p 6379 -a mypassword person:1
-    
+
 Output :
 
     Key 			"person:1"
@@ -79,7 +79,7 @@ Output :
     Number of Elements		2
     Length of Largest Element	8
 
-NOTE : 
+NOTE :
 
 1. This was added to redis-rdb-tools version 0.1.3
 2. This command depends [redis-py](https://github.com/andymccurdy/redis-py) package
@@ -90,7 +90,7 @@ First, use the --command diff option, and pipe the output to standard sort utili
 
     rdb --command diff /var/redis/6379/dump1.rdb | sort > dump1.txt
     rdb --command diff /var/redis/6379/dump2.rdb | sort > dump2.txt
-    
+
 Then, run your favourite diff program
 
     kdiff3 dump1.txt dump2.txt
@@ -103,22 +103,22 @@ To limit the size of the files, you can filter on keys using the --key=regex opt
     from rdbtools import RdbParser, RdbCallback
 
     class MyCallback(RdbCallback) :
-        ''' Simple example to show how callback works. 
+        ''' Simple example to show how callback works.
             See RdbCallback for all available callback methods.
             See JsonCallback for a concrete example
-        ''' 
+        '''
         def set(self, key, value, expiry):
             print('%s = %s' % (str(key), str(value)))
-        
+
         def hset(self, key, field, value):
             print('%s.%s = %s' % (str(key), str(field), str(value)))
-        
+
         def sadd(self, key, member):
             print('%s has {%s}' % (str(key), str(member)))
-        
+
         def rpush(self, key, value) :
             print('%s has [%s]' % (str(key), str(value)))
-        
+
         def zadd(self, key, score, member):
             print('%s has {%s : %s}' % (str(key), str(member), str(score)))
 
@@ -136,7 +136,7 @@ To limit the size of the files, you can filter on keys using the --key=regex opt
 
 rdbtools is licensed under the MIT License. See [LICENSE](https://github.com/sripathikrishnan/redis-rdb-tools/blob/master/LICENSE)
 
-## Maintained By 
+## Maintained By
 
 Sripathi Krishnan : @srithedabbler
 
