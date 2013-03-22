@@ -14,6 +14,8 @@ try :
 except ImportError:
     from io import StringIO
 
+import array
+
 REDIS_RDB_6BITLEN = 0
 REDIS_RDB_14BITLEN = 1
 REDIS_RDB_32BITLEN = 2
@@ -576,7 +578,9 @@ class RdbParser :
 
     def read_zipmap(self, f) :
         raw_string = self.read_string(f)
-        buff = io.BytesIO(bytearray(raw_string))
+        # raw_byte_arr = bytearray(raw_string)
+        raw_byte_arr = array.array('B', raw_string)
+        buff = io.BytesIO(raw_byte_arr.tostring())
         num_entries = read_unsigned_char(buff)
         self._callback.start_hash(self._key, num_entries, self._expiry, info={'encoding':'zipmap', 'sizeof_value':len(raw_string)})
         while True :
@@ -658,10 +662,10 @@ class RdbParser :
         return DATA_TYPE_MAPPING[data_type]
 
     def lzf_decompress(self, compressed, expected_length):
-        in_stream = bytearray(compressed)
+        in_stream = array.array('B', compressed)
         in_len = len(in_stream)
         in_index = 0
-        out_stream = bytearray()
+        out_stream = array.array('B')
         out_index = 0
 
         while in_index < in_len :
@@ -689,7 +693,8 @@ class RdbParser :
                     out_index = out_index + 1
         if len(out_stream) != expected_length :
             raise Exception('lzf_decompress', 'Expected lengths do not match %d != %d for key %s' % (len(out_stream), expected_length, self._key))
-        return str(out_stream)
+        # return str(out_stream)
+        return out_stream.tostring()
 
 def skip(f, free):
     if free :
