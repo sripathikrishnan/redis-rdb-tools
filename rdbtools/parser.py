@@ -1,6 +1,10 @@
 from __future__ import with_statement
 import struct
-import io
+try:
+    import io
+except ImportError:
+    import StringIO as io
+
 import sys
 import datetime
 import re
