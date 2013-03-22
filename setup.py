@@ -30,7 +30,7 @@ sdict = {
     'maintainer_email' : 'Sripathi.Krishnan@gmail.com',
     'keywords' : ['Redis', 'RDB', 'Export', 'Dump', 'Memory Profiler'],
     'license' : 'MIT',
-    'packages' : ['rdbtools', 'rdbtools.cli'],
+    'packages' : ['rdbtools', 'rdbtools.cli', 'rdbtools.utils'],
     'package_data' : {'rdbtools.cli': ['*.template']},
     'test_suite' : 'tests.all_tests',
     'entry_points' : {
