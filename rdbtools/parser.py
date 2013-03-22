@@ -661,10 +661,17 @@ class RdbParser :
         return DATA_TYPE_MAPPING[data_type]
 
     def lzf_decompress(self, compressed, expected_length):
-        in_stream = array.array('B', compressed)
+        bytearray_present = True
+        try:
+            in_stream = bytearray(compressed)
+            out_stream = bytearray()
+        except NameError:
+            in_stream = array.array('B', compressed)
+            out_stream = array.array('B')
+            bytearray_present = False
         in_len = len(in_stream)
         in_index = 0
-        out_stream = array.array('B')
+
         out_index = 0
 
         while in_index < in_len :
@@ -692,8 +699,10 @@ class RdbParser :
                     out_index = out_index + 1
         if len(out_stream) != expected_length :
             raise Exception('lzf_decompress', 'Expected lengths do not match %d != %d for key %s' % (len(out_stream), expected_length, self._key))
-        # return str(out_stream)
-        return out_stream.tostring()
+        if bytearray_present:
+            return str(out_stream)
+        else:
+            return out_stream.tostring()
 
 def skip(f, free):
     if free :
