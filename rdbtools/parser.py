@@ -578,8 +578,20 @@ class RdbParser :
 
     def read_zipmap(self, f) :
         raw_string = self.read_string(f)
-        raw_byte_arr = array.array('B', raw_string)
-        buff = io.BytesIO(raw_byte_arr.tostring())
+        bytearray_present = True
+        try:
+            raw_byte_arr = bytearray(raw_string)
+        except NameError:
+            raw_byte_arr = array.array('B', raw_string)
+            bytearray_present = False
+        if bytearray_present:
+            byte_str = str(raw_byte_arr)
+        else:
+            byte_str = raw_byte_arr.tostring()
+        try:
+            buff = io.BytesIO(byte_str)
+        except AttributeError:
+            buff = io.StringIO(byte_str)
         num_entries = read_unsigned_char(buff)
         self._callback.start_hash(self._key, num_entries, self._expiry, info={'encoding':'zipmap', 'sizeof_value':len(raw_string)})
         while True :
