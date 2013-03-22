@@ -4,7 +4,10 @@ except ImportError:
     from rdbtools.utils import namedtuple
 
 import random
-import json
+try:
+    import json
+except ImportError:
+    import simplejson as json
 
 from rdbtools.parser import RdbCallback
 from rdbtools.callbacks import encode_key
