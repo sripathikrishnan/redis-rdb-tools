@@ -1,7 +1,7 @@
 try:
     from collections import namedtuple
 except ImportError:
-    from utils.namedtuple import namedtuple
+    from rdbtools.utils.namedtuple import namedtuple
 
 import random
 try:
