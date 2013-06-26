@@ -701,6 +701,8 @@ def ntohl(f) :
 
 def to_datetime(usecs_since_epoch):
     seconds_since_epoch = usecs_since_epoch / 1000000
+    if seconds_since_epoch > 221925052800 :
+        seconds_since_epoch = 221925052800
     useconds = usecs_since_epoch % 1000000
     dt = datetime.datetime.utcfromtimestamp(seconds_since_epoch)
     delta = datetime.timedelta(microseconds = useconds)
