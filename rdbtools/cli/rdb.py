@@ -2,7 +2,7 @@
 import os
 import sys
 from optparse import OptionParser
-from rdbtools import RdbParser, JSONCallback, DiffCallback, MemoryCallback, PrintAllKeys
+from rdbtools import RdbParser, JSONCallback, DiffCallback, MemoryCallback, ProtocolCallback, PrintAllKeys
 
 VALID_TYPES = ("hash", "set", "string", "list", "sortedset")
 def main():
@@ -12,8 +12,7 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
 
     parser = OptionParser(usage=usage)
     parser.add_option("-c", "--command", dest="command",
-                  help="Command to execute. Valid commands are json or diff", metavar="FILE")
-                  
+                  help="Command to execute. Valid commands are json, diff, and protocol", metavar="FILE")
     parser.add_option("-f", "--file", dest="output",
                   help="Output file", metavar="FILE")
     parser.add_option("-n", "--db", dest="dbs", action="append",
@@ -60,8 +59,10 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
             elif 'memory' == options.command:
                 reporter = PrintAllKeys(f)
                 callback = MemoryCallback(reporter, 64)
+            elif 'protocol' == options.command:
+                callback = ProtocolCallback(f)
             else:
-                raise Exception('Invalid Command %s' % options.output)
+                raise Exception('Invalid Command %s' % options.command)
             parser = RdbParser(callback)
             parser.parse(dump_file)
     else:
@@ -72,8 +73,10 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
         elif 'memory' == options.command:
             reporter = PrintAllKeys(sys.stdout)
             callback = MemoryCallback(reporter, 64)
+        elif 'protocol' == options.command:
+            callback = ProtocolCallback(sys.stdout)
         else:
-            raise Exception('Invalid Command %s' % options.output)
+            raise Exception('Invalid Command %s' % options.command)
 
         parser = RdbParser(callback, filters=filters)
         parser.parse(dump_file)
