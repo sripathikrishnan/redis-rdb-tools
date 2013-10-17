@@ -97,6 +97,28 @@ Then, run your favourite diff program
 
 To limit the size of the files, you can filter on keys using the --key=regex option
 
+## Emitting Redis Protocol ##
+
+You can convert RDB file into a stream of [redis protocol](http://redis.io/topics/protocol) using the "protocol" command.
+
+    rdb --command protocol /var/redis/6379/dump.rdb
+    
+    *4
+    $4
+    HSET
+    $9
+    users:123
+    $9
+    firstname
+    $8
+    Sripathi
+
+You can pipe the output to netcat and re-import a subset of the data. 
+For example, if you want to shard your data into two redis instances, you can use the --key flag to select a subset of data, 
+and then pipe the output to a running redis instance to load that data.
+
+Read [Redis Mass Insert](http://redis.io/topics/mass-insert) for more information on this.
+
 ## Using the Parser ##
 
     import sys
@@ -148,4 +170,5 @@ Sripathi Krishnan : @srithedabbler
  4. [Carlo Cabanilla](https://github.com/clofresh)
  5. [Josep M. Pujol](https://github.com/solso)
  6. [Charles Gordon](https://github.com/cgordon)
+ 7. [Justin Poliey](https://github.com/jdp)
 
