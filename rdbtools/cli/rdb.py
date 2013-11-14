@@ -22,6 +22,8 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
     parser.add_option("-t", "--type", dest="types", action="append",
                   help="""Data types to include. Possible values are string, hash, set, sortedset, list. Multiple typees can be provided. 
                     If not specified, all data types will be returned""")
+    parser.add_option("-s", "--size", dest="size", default=None,
+                  help="Limit memory output to keys greater to or equal to this value (in bytes)")
     
     (options, args) = parser.parse_args()
     
@@ -57,7 +59,7 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
             elif 'json' == options.command:
                 callback = JSONCallback(f)
             elif 'memory' == options.command:
-                reporter = PrintAllKeys(f)
+                reporter = PrintAllKeys(f, options.size)
                 callback = MemoryCallback(reporter, 64)
             elif 'protocol' == options.command:
                 callback = ProtocolCallback(f)
@@ -71,7 +73,7 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
         elif 'json' == options.command:
             callback = JSONCallback(sys.stdout)
         elif 'memory' == options.command:
-            reporter = PrintAllKeys(sys.stdout)
+            reporter = PrintAllKeys(sys.stdout, options.size)
             callback = MemoryCallback(reporter, 64)
         elif 'protocol' == options.command:
             callback = ProtocolCallback(sys.stdout)
