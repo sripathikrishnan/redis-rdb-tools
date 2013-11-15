@@ -52,39 +52,25 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
                 raise Exception('Invalid type provided - %s. Expected one of %s' % (x, (", ".join(VALID_TYPES))))
             else:
                 filters['types'].append(x)
-    
-    # TODO : Fix this ugly if-else code
-    if options.output:
-        with open(options.output, "wb") as f:
-            if 'diff' == options.command:
-                callback = DiffCallback(f)
-            elif 'json' == options.command:
-                callback = JSONCallback(f)
-            elif 'memory' == options.command:
-                reporter = PrintAllKeys(f, options.bytes, options.largest)
-                callback = MemoryCallback(reporter, 64)
-            elif 'protocol' == options.command:
-                callback = ProtocolCallback(f)
-            else:
-                raise Exception('Invalid Command %s' % options.command)
-            parser = RdbParser(callback)
-            parser.parse(dump_file)
-    else:
-        if 'diff' == options.command:
-            callback = DiffCallback(sys.stdout)
-        elif 'json' == options.command:
-            callback = JSONCallback(sys.stdout)
-        elif 'memory' == options.command:
-            reporter = PrintAllKeys(sys.stdout, options.bytes, options.largest)
-            callback = MemoryCallback(reporter, 64)
-        elif 'protocol' == options.command:
-            callback = ProtocolCallback(sys.stdout)
-        else:
-            raise Exception('Invalid Command %s' % options.command)
 
-        parser = RdbParser(callback, filters=filters)
-        parser.parse(dump_file)
-    
+    if options.output:
+        f = open(options.output, "wb")
+    else:
+        f = sys.stdout
+
+    try:
+        callback = {
+            'diff': lambda f: DiffCallback(f),
+            'json': lambda f: JSONCallback(f),
+            'memory': lambda f: MemoryCallback(PrintAllKeys(f, options.bytes, options.largest), 64),
+            'protocol': lambda f: ProtocolCallback(f)
+        }[options.command](f)
+    except:
+        raise Exception('Invalid Command %s' % options.command)
+
+    parser = RdbParser(callback, filters=filters)
+    parser.parse(dump_file)
+
 if __name__ == '__main__':
     main()
 
