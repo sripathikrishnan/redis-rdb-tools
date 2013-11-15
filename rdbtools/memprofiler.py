@@ -70,8 +70,8 @@ class StatsAggregator():
         return json.dumps({"aggregates":self.aggregates, "scatters":self.scatters, "histograms":self.histograms})
         
 class PrintAllKeys():
-    def __init__(self, out, size, largest):
-        self._size = size
+    def __init__(self, out, bytes, largest):
+        self._bytes = bytes
         self._largest = largest
         self._out = out
         self._out.write("%s,%s,%s,%s,%s,%s,%s\n" % ("database", "type", "key", 
@@ -82,7 +82,7 @@ class PrintAllKeys():
     
     def next_record(self, record) :
         if self._largest is None:
-            if self._size is None or record.bytes >= int(self._size):
+            if self._bytes is None or record.bytes >= int(self._bytes):
                 self._out.write("%d,%s,%s,%d,%s,%d,%d\n" % (record.database, record.type, encode_key(record.key), 
                                                          record.bytes, record.encoding, record.size, record.len_largest_element))
         else:
