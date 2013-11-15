@@ -87,10 +87,10 @@ class PrintAllKeys():
                                                          record.bytes, record.encoding, record.size, record.len_largest_element))
         else:
             heappush(self._heap, (record.bytes, record))
-            self._heap = nlargest(int(self._largest), self._heap)
 
     def dump_heap(self):
         if self._largest is not None:
+            self._heap = nlargest(int(self._largest), self._heap)
             self._largest = None
 
             while self._heap:
