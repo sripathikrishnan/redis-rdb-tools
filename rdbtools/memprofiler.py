@@ -69,13 +69,13 @@ class StatsAggregator():
         
 class PrintAllKeys():
     def __init__(self, out, size):
-        self._size = int(size)
+        self._size = size
         self._out = out
         self._out.write("%s,%s,%s,%s,%s,%s,%s\n" % ("database", "type", "key", 
                                                  "size_in_bytes", "encoding", "num_elements", "len_largest_element"))
     
     def next_record(self, record) :
-        if self._size is None or record.size >= self._size:
+        if self._size is None or record.size >= int(self._size):
             self._out.write("%d,%s,%s,%d,%s,%d,%d\n" % (record.database, record.type, encode_key(record.key), 
                                                      record.bytes, record.encoding, record.size, record.len_largest_element))
     
