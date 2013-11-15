@@ -68,14 +68,16 @@ class StatsAggregator():
         return json.dumps({"aggregates":self.aggregates, "scatters":self.scatters, "histograms":self.histograms})
         
 class PrintAllKeys():
-    def __init__(self, out):
+    def __init__(self, out, size):
+        self._size = size
         self._out = out
         self._out.write("%s,%s,%s,%s,%s,%s,%s\n" % ("database", "type", "key", 
                                                  "size_in_bytes", "encoding", "num_elements", "len_largest_element"))
     
     def next_record(self, record) :
-        self._out.write("%d,%s,%s,%d,%s,%d,%d\n" % (record.database, record.type, encode_key(record.key), 
-                                                 record.bytes, record.encoding, record.size, record.len_largest_element))
+        if self._size is None or record.size >= int(self._size):
+            self._out.write("%d,%s,%s,%d,%s,%d,%d\n" % (record.database, record.type, encode_key(record.key), 
+                                                     record.bytes, record.encoding, record.size, record.len_largest_element))
     
 class MemoryCallback(RdbCallback):
     '''Calculates the memory used if this rdb file were loaded into RAM
