@@ -12,7 +12,7 @@ REDIS_SHARED_INTEGERS = 10000
 MemoryRecord = namedtuple('MemoryRecord', ['database', 'type', 'key', 'bytes', 'encoding','size', 'len_largest_element'])
 
 class StatsAggregator():
-    def __init__(self, key_groupings = None):
+    def __init__(self):
         self.aggregates = defaultdict(lambda: defaultdict(int))
         self.histograms = defaultdict(lambda: defaultdict(int))
         self.scatters = defaultdict(list)
