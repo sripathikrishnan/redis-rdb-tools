@@ -1,4 +1,4 @@
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 import random
 import json
 
@@ -13,9 +13,9 @@ MemoryRecord = namedtuple('MemoryRecord', ['database', 'type', 'key', 'bytes', '
 
 class StatsAggregator():
     def __init__(self, key_groupings = None):
-        self.aggregates = {}
-        self.scatters = {}
-        self.histograms = {}
+        self.aggregates = defaultdict(lambda: defaultdict(int))
+        self.histograms = defaultdict(lambda: defaultdict(int))
+        self.scatters = defaultdict(list)
 
     def next_record(self, record):
         self.add_aggregate('database_memory', record.database, record.bytes)
@@ -42,28 +42,14 @@ class StatsAggregator():
             raise Exception('Invalid data type %s' % record.type)
 
     def add_aggregate(self, heading, subheading, metric):
-        if not heading in self.aggregates :
-            self.aggregates[heading] = {}
-        
-        if not subheading in self.aggregates[heading]:
-            self.aggregates[heading][subheading] = 0
-            
         self.aggregates[heading][subheading] += metric
-    
-    def add_histogram(self, heading, metric):
-        if not heading in self.histograms:
-            self.histograms[heading] = {}
 
-        if not metric in self.histograms[heading]:
-            self.histograms[heading][metric] = 1
-        else :
-            self.histograms[heading][metric] += 1
-    
+    def add_histogram(self, heading, metric):
+        self.histograms[heading][metric] += 1
+
     def add_scatter(self, heading, x, y):
-        if not heading in self.scatters:
-            self.scatters[heading] = []
         self.scatters[heading].append([x, y])
-  
+
     def get_json(self):
         return json.dumps({"aggregates":self.aggregates, "scatters":self.scatters, "histograms":self.histograms})
         
