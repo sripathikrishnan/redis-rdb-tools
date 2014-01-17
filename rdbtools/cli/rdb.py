@@ -4,6 +4,9 @@ import sys
 from optparse import OptionParser
 from rdbtools import RdbParser, JSONCallback, DiffCallback, MemoryCallback, ProtocolCallback, PrintAllKeys
 
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
 VALID_TYPES = ("hash", "set", "string", "list", "sortedset")
 def main():
     usage = """usage: %prog [options] /path/to/dump.rdb
