@@ -263,13 +263,21 @@ class RdbParser :
         self._key = None
         self._expiry = None
         self.init_filter(filters)
+        self._rdb_version = 0
 
     def parse(self, filename):
         """
         Parse a redis rdb dump file, and call methods in the 
         callback object during the parsing operation.
         """
-        with open(filename, "rb") as f:
+        self.parse_fd(open(filename, "rb"))
+
+    def parse_fd(self, fd):
+        """
+        Parse a redis rdb dump from file object, and call methods in the
+        callback object during the parsing operation.
+        """
+        with fd as f:
             self.verify_magic_string(f.read(5))
             self.verify_version(f.read(4))
             self._callback.start_rdb()
@@ -298,6 +306,8 @@ class RdbParser :
                 if data_type == REDIS_RDB_OPCODE_EOF :
                     self._callback.end_database(db_number)
                     self._callback.end_rdb()
+                        if self._rdb_version >= 5:
+                            f.read(8)
                     break
 
                 if self.matches_filter(db_number) :
@@ -610,6 +620,7 @@ class RdbParser :
         version = int(version_str)
         if version < 1 or version > 6 : 
             raise Exception('verify_version', 'Invalid RDB version number %d' % version)
+        self._rdb_version = version
 
     def init_filter(self, filters):
         self._filters = {}
