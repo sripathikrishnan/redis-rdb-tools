@@ -1,4 +1,16 @@
-# Parse Redis dump.rdb files, Analyze Memory, and Export Data to JSON #
+# add by idning: ``rdbtools/cli/redis_stat.py``
+
+::
+
+    $ time ./redis-rdb-tools/rdbtools/cli/redis_stat.py -k 'user-' -k 'file-' dump.rdb.part
+             -         cnt  cnt_hash        cnt_string           mem        mem_hash        mem_string      z_cnt_no_expire       z_sum_expire
+          user      220178    220178                 0      34886519        34886519                 0                    0     -81039445726.0
+          file       71356         0             71356      15250363               0          15250363                    0     -26377119006.0
+     z_unknown        2314         0              2314        252226               0            252226                 2314                  0
+        zz_all      302813    220178             82635      52746444        34886519          17859925                 2314 -1.10728956618e+11
+
+
+d Parse Redis dump.rdb files, Analyze Memory, and Export Data to JSON #
 
 Rdbtools is a parser for Redis' dump.rdb files. The parser generates events similar to an xml sax parser, and is very efficient memory wise.
 
