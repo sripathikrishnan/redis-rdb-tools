@@ -1,8 +1,14 @@
 #!/usr/bin/env python
 import os
 import sys
+
+PWD = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(PWD, '../../'))
+
 from optparse import OptionParser
 from rdbtools import RdbParser, JSONCallback, DiffCallback, MemoryCallback, ProtocolCallback, PrintAllKeys
+
+
 
 VALID_TYPES = ("hash", "set", "string", "list", "sortedset")
 def main():
