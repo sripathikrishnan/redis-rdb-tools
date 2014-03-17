@@ -94,7 +94,7 @@ class MyStatsAggregator():
                 if key.startswith(k):
                     return k
             return 'z_unknown'
-        ns = get_ns(record.key)
+        ns = get_ns(str(record.key))
 
         for k in [ns, 'zz_all']:
             self.stat2d[k]['cnt_' + record.type] += 1
