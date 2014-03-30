@@ -306,8 +306,8 @@ class RdbParser :
                 if data_type == REDIS_RDB_OPCODE_EOF :
                     self._callback.end_database(db_number)
                     self._callback.end_rdb()
-                        if self._rdb_version >= 5:
-                            f.read(8)
+                    if self._rdb_version >= 5:
+                        f.read(8)
                     break
 
                 if self.matches_filter(db_number) :
