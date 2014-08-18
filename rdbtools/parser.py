@@ -360,6 +360,19 @@ class RdbParser :
             val = f.read(length)
         return val
 
+    def read_float(self, f):
+        dbl_length = read_unsigned_char(f)
+        if dbl_length == 253:
+            return float('nan')
+        elif dbl_length == 254:
+            return float('inf')
+        elif dbl_length == 255:
+            return float('-inf')
+        data = f.read(dbl_length)
+        if isinstance(data, str):
+            return float(data)
+        return data # bug?
+
     # Read an object for the stream
     # f is the redis file 
     # enc_type is the type of object
@@ -393,10 +406,7 @@ class RdbParser :
             self._callback.start_sorted_set(self._key, length, self._expiry, info={'encoding':'skiplist'})
             for count in xrange(0, length) :
                 val = self.read_string(f)
-                dbl_length = read_unsigned_char(f)
-                score = f.read(dbl_length)
-                if isinstance(score, str):
-                    score = float(score)
+                score = self.read_float(f)
                 self._callback.zadd(self._key, score, val)
             self._callback.end_sorted_set(self._key)
         elif enc_type == REDIS_RDB_TYPE_HASH :
