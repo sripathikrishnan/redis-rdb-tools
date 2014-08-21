@@ -2,7 +2,7 @@
 import os
 import sys
 from optparse import OptionParser
-from rdbtools import RdbParser, JSONCallback, DiffCallback, MemoryCallback, ProtocolCallback, PrintAllKeys
+from rdbtools import RdbParser, JSONCallback, DiffCallback, MemoryCallback, ProtocolCallback, PrintAllKeys, StoreAllKeysInMemory, MShell
 
 VALID_TYPES = ("hash", "set", "string", "list", "sortedset")
 def main():
@@ -12,7 +12,7 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
 
     parser = OptionParser(usage=usage)
     parser.add_option("-c", "--command", dest="command",
-                  help="Command to execute. Valid commands are json, diff, and protocol", metavar="FILE")
+                  help="Command to execute. Valid commands are json, diff, protocol, and mshell", metavar="FILE")
     parser.add_option("-f", "--file", dest="output",
                   help="Output file", metavar="FILE")
     parser.add_option("-n", "--db", dest="dbs", action="append",
@@ -75,12 +75,18 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
             callback = MemoryCallback(reporter, 64)
         elif 'protocol' == options.command:
             callback = ProtocolCallback(sys.stdout)
+        elif 'mshell' == options.command:
+            reporter = StoreAllKeysInMemory()
+            callback = MemoryCallback(reporter, 64)
         else:
             raise Exception('Invalid Command %s' % options.command)
 
         parser = RdbParser(callback, filters=filters)
         parser.parse(dump_file)
-    
+
+        if 'mshell' == options.command:
+            MShell(reporter).cmdloop()
+
 if __name__ == '__main__':
     main()
 

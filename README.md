@@ -5,8 +5,9 @@ Rdbtools is a parser for Redis' dump.rdb files. The parser generates events simi
 In addition, rdbtools provides utilities to :
 
  1.  Generate a Memory Report of your data across all databases and keys
- 2.  Convert dump files to JSON
- 3.  Compare two dump files using standard diff tools
+ 2.  Analyze memory used across keys using an interactive Memory Shell
+ 3.  Convert dump files to JSON
+ 4.  Compare two dump files using standard diff tools
 
 Rdbtools is written in Python, though there are similar projects in other languages. See [FAQs](https://github.com/sripathikrishnan/redis-rdb-tools/wiki/FAQs) for more information.
 
@@ -83,6 +84,40 @@ NOTE :
 
 1. This was added to redis-rdb-tools version 0.1.3
 2. This command depends [redis-py](https://github.com/andymccurdy/redis-py) package
+
+## Open an interactive Memory Shell ##
+
+Sometimes you want to do a quick memory analysis across a few keys or even entire key namespaces, but summing up dump report values can be time consuming.
+
+For these cases, RDB tools offers an interactive Memory Shell dubbed "MShell", which loads the approximate memory sizes of all keys into memory for quick querying.
+
+*Beware, this can take a minute to prepare and be memory-consuming for large-scale dump files since it's all stored in memory.*
+
+Start MShell :
+
+    rdb -c mshell dump.rdb
+    
+    Welcome to RDB MShell!
+    mshell> 
+
+Get approximate memory usage for a specific key, `user:123:items` :
+
+    mshell> info user:123:items
+    25136234 bytes (2.829%)
+
+Get a wildcard range across a specific namespace, all keys starting with `user:*` :
+
+    mshell> info user:*
+    710816090 bytes (80.000%)
+
+See approximate memory usage of all keys :
+
+    mshell> info *
+    888520112 bytes (100.000%)
+
+
+MShell also offers auto-complete support, which is helpful for when you don't remember exact key or namespace values.
+
 
 ## Comparing RDB files ##
 
@@ -171,4 +206,5 @@ Sripathi Krishnan : @srithedabbler
  5. [Josep M. Pujol](https://github.com/solso)
  6. [Charles Gordon](https://github.com/cgordon)
  7. [Justin Poliey](https://github.com/jdp)
+ 7. [Loisaida Sam Sandberg](https://github.com/loisaidasam)
 
