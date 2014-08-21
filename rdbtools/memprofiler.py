@@ -417,7 +417,6 @@ class MShell(cmd.Cmd):
                     # If there is a colon, only add part up to the colon
                     key_result = key_result[:pos_of_colon] + ':'
             results.add(key_result)
-        # logger.info("results: %s", sorted(results))
         return sorted(results)
 
     def do_EOF(self, line):
