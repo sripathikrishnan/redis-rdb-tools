@@ -1,3 +1,5 @@
+
+import cmd
 from collections import namedtuple
 import random
 import json
@@ -76,6 +78,15 @@ class PrintAllKeys():
     def next_record(self, record) :
         self._out.write("%d,%s,%s,%d,%s,%d,%d\n" % (record.database, record.type, encode_key(record.key), 
                                                  record.bytes, record.encoding, record.size, record.len_largest_element))
+
+class StoreAllKeysInMemory():
+    def __init__(self):
+        self.store = {}
+        self.total_bytes = 0
+
+    def next_record(self, record):
+        self.store[record.key] = record.bytes
+        self.total_bytes += record.bytes
     
 class MemoryCallback(RdbCallback):
     '''Calculates the memory used if this rdb file were loaded into RAM
@@ -336,4 +347,81 @@ def element_length(element):
         return 16
     else:
         return len(element)
-    
+
+
+class MShell(cmd.Cmd):
+    def __init__(self, stream, limit_results=True):
+        '''MShell is a "Memory Shell" for getting info about memory consumption
+        of keys in the redis store.
+
+        `limit_results` is an optional parameter for limiting the auto-complete
+            results returned to the nearest following ':' character of the key
+            namespace. For example, if set to True and the stored keys are
+            "foo:bar:1", "foo:bar:2", and "foo:baz:1", and the input to the
+            auto-complete function is "foo:", then the returned results will be
+            "foo:bar:" and "foo:baz:" (instead of "foo:bar:1", "foo:bar:2",
+            "foo:baz:1", ... which can get rather large)
+        '''
+        self.store = stream.store
+        self.total_bytes = stream.total_bytes
+        self.limit_results = limit_results
+        cmd.Cmd.__init__(self)
+        self.prompt = "mshell> "
+        self.intro  = "Welcome to RDB MShell!"
+
+    def do_info(self, key):
+        '''Get memory info about a specified key or pattern using * as the wildcard char
+        '''
+        if '*' in key:
+            # Wildcard match
+            subkey = key[:len(key)-1]
+            if '*' in subkey:
+                # TODO: Support better wildcarding
+                print "Only supporting tail wildcard matches right now (ex: 'foo:*')"
+                return
+            bytes = 0
+            for key in self.store.iterkeys():
+                if key.startswith(subkey):
+                    bytes += self.store[key]
+        else:
+            # Exact match
+            if key not in self.store:
+                print "No such key"
+                return
+            bytes = self.store[key]
+        pct = 100.0 * bytes / self.total_bytes
+        print "%d bytes (%0.3f%%)" % (bytes, pct)
+
+    def complete_info(self, text, line, begidx, endidx):
+        '''Auto-complete functionality for `info` command
+
+        Caveat: when auto-complete input ends in ':' (a character that many
+        namespaces contain, as per redis common practice), `text` parameter
+        becomes an empty string, so `key_text` is extracted from the remainder
+        of the line starting after the "info " prefix.
+        '''
+        key_text = line[5:]
+        if not key_text:
+            return []
+        existing_prefix = ':'.join(key_text.split(':')[:-1])
+        if existing_prefix:
+            existing_prefix += ':'
+        results = set()
+        for key in self.store.iterkeys():
+            if not key.startswith(key_text):
+                continue
+            key_result = key[len(existing_prefix):]
+            if self.limit_results:
+                pos_of_colon = key_result.find(':')
+                if pos_of_colon != -1:
+                    # If there is a colon, only add part up to the colon
+                    key_result = key_result[:pos_of_colon] + ':'
+            results.add(key_result)
+        # logger.info("results: %s", sorted(results))
+        return sorted(results)
+
+    def do_EOF(self, line):
+        '''Support expected EOF behavior
+        '''
+        print ""
+        return True
