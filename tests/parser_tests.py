@@ -189,6 +189,13 @@ class RedisParserTestCase(unittest.TestCase):
         self.assertEquals(r.databases[0]['abcdef'], 'abcdef')
         self.assertEquals(r.databases[0]['longerstring'], 'thisisalongerstring.idontknowwhatitmeans')
 
+    def test_multiple_databases_stream(self):
+        r = load_rdb_stream('multiple_databases.rdb')
+        self.assert_(len(r.databases), 2)
+        self.assert_(1 not in r.databases)
+        self.assertEquals(r.databases[0]["key_in_zeroth_database"], "zero")
+        self.assertEquals(r.databases[2]["key_in_second_database"], "second")      
+
 def floateq(f1, f2) :
     return math.fabs(f1 - f2) < 0.00001
 
@@ -196,6 +203,12 @@ def load_rdb(file_name, filters=None) :
     r = MockRedis()
     parser = RdbParser(r, filters)
     parser.parse(os.path.join(os.path.dirname(__file__), 'dumps', file_name))
+    return r
+
+def load_rdb_stream(file_name, filters=None) :
+    r = MockRedis()
+    parser = RdbParser(r, filters)
+    parser.parse_stream(open(os.path.join(os.path.dirname(__file__), 'dumps', file_name), 'rb'))
     return r
     
 class MockRedis(RdbCallback):

@@ -270,44 +270,51 @@ class RdbParser :
         callback object during the parsing operation.
         """
         with open(filename, "rb") as f:
-            self.verify_magic_string(f.read(5))
-            self.verify_version(f.read(4))
-            self._callback.start_rdb()
-            
-            is_first_database = True
-            db_number = 0
-            while True :
-                self._expiry = None
-                data_type = read_unsigned_char(f)
-                
-                if data_type == REDIS_RDB_OPCODE_EXPIRETIME_MS :
-                    self._expiry = to_datetime(read_unsigned_long(f) * 1000)
-                    data_type = read_unsigned_char(f)
-                elif data_type == REDIS_RDB_OPCODE_EXPIRETIME :
-                    self._expiry = to_datetime(read_unsigned_int(f) * 1000000)
-                    data_type = read_unsigned_char(f)
-                
-                if data_type == REDIS_RDB_OPCODE_SELECTDB :
-                    if not is_first_database :
-                        self._callback.end_database(db_number)
-                    is_first_database = False
-                    db_number = self.read_length(f)
-                    self._callback.start_database(db_number)
-                    continue
-                
-                if data_type == REDIS_RDB_OPCODE_EOF :
-                    self._callback.end_database(db_number)
-                    self._callback.end_rdb()
-                    break
+            self.parse_stream(f)
 
-                if self.matches_filter(db_number) :
-                    self._key = self.read_string(f)
-                    if self.matches_filter(db_number, self._key, data_type):
-                        self.read_object(f, data_type)
-                    else:
-                        self.skip_object(f, data_type)
-                else :
-                    self.skip_key_and_object(f, data_type)
+    def parse_stream(self, stream):
+        """
+        Parse a redis rdb dump stream, and call methods in the 
+        callback object during the parsing operation.
+        """
+        self.verify_magic_string(stream.read(5))
+        self.verify_version(stream.read(4))
+        self._callback.start_rdb()
+        
+        is_first_database = True
+        db_number = 0
+        while True :
+            self._expiry = None
+            data_type = read_unsigned_char(stream)
+            
+            if data_type == REDIS_RDB_OPCODE_EXPIRETIME_MS :
+                self._expiry = to_datetime(read_unsigned_long(stream) * 1000)
+                data_type = read_unsigned_char(stream)
+            elif data_type == REDIS_RDB_OPCODE_EXPIRETIME :
+                self._expiry = to_datetime(read_unsigned_int(stream) * 1000000)
+                data_type = read_unsigned_char(stream)
+            
+            if data_type == REDIS_RDB_OPCODE_SELECTDB :
+                if not is_first_database :
+                    self._callback.end_database(db_number)
+                is_first_database = False
+                db_number = self.read_length(stream)
+                self._callback.start_database(db_number)
+                continue
+            
+            if data_type == REDIS_RDB_OPCODE_EOF :
+                self._callback.end_database(db_number)
+                self._callback.end_rdb()
+                break
+
+            if self.matches_filter(db_number) :
+                self._key = self.read_string(stream)
+                if self.matches_filter(db_number, self._key, data_type):
+                    self.read_object(stream, data_type)
+                else:
+                    self.skip_object(stream, data_type)
+            else :
+                self.skip_key_and_object(stream, data_type)
 
     def read_length_with_encoding(self, f) :
         length = 0
