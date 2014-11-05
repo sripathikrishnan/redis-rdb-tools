@@ -134,7 +134,7 @@ class JSONCallback(RdbCallback):
         pass
     
     def _write_comma(self):
-        if self._element_index > 0 and self._element_index < self._elements_in_key :
+        if self._element_index > 0 :
             self._out.write(',')
         self._element_index = self._element_index + 1
         
