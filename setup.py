@@ -31,7 +31,9 @@ sdict = {
     'keywords' : ['Redis', 'RDB', 'Export', 'Dump', 'Memory Profiler'],
     'license' : 'MIT',
     'packages' : ['rdbtools', 'rdbtools.cli'],
-    'package_data' : {'rdbtools.cli': ['*.template']},
+    'package_data' : {
+        'rdbtools': ['templates/*'],
+    },
     'test_suite' : 'tests.all_tests',
     'entry_points' : {
         'console_scripts' : [
