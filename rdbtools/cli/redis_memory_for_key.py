@@ -83,7 +83,7 @@ def check_redis_version(redis):
 def read_unsigned_char(f) :
     return struct.unpack('B', f.read(1))[0]
 
-class PrintMemoryUsage():
+class PrintMemoryUsage(object):
     def next_record(self, record) :
         print("%s\t\t\t\t%s" % ("Key", encode_key(record.key)))
         print("%s\t\t\t\t%s" % ("Bytes", record.bytes))

@@ -39,7 +39,7 @@ DATA_TYPE_MAPPING = {
     0 : "string", 1 : "list", 2 : "set", 3 : "sortedset", 4 : "hash", 
     9 : "hash", 10 : "list", 11 : "set", 12 : "sortedset", 13 : "hash"}
 
-class RdbCallback:
+class RdbCallback(object):
     """
     A Callback to handle events as the Redis dump file is parsed.
     This callback provides a serial and fast access to the dump file.
@@ -236,7 +236,7 @@ class RdbCallback:
         """Called to indicate we have completed parsing of the dump file"""
         pass
 
-class RdbParser :
+class RdbParser(object):
     """
     A Parser for Redis RDB Files
     

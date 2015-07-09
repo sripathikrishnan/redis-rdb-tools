@@ -11,7 +11,7 @@ REDIS_SHARED_INTEGERS = 10000
 
 MemoryRecord = namedtuple('MemoryRecord', ['database', 'type', 'key', 'bytes', 'encoding','size', 'len_largest_element'])
 
-class StatsAggregator():
+class StatsAggregator(object):
     def __init__(self, key_groupings = None):
         self.aggregates = {}
         self.scatters = {}
@@ -67,7 +67,7 @@ class StatsAggregator():
     def get_json(self):
         return json.dumps({"aggregates":self.aggregates, "scatters":self.scatters, "histograms":self.histograms})
         
-class PrintAllKeys():
+class PrintAllKeys(object):
     def __init__(self, out):
         self._out = out
         self._out.write("%s,%s,%s,%s,%s,%s,%s\n" % ("database", "type", "key", 
