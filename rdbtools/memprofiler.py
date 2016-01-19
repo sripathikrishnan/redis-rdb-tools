@@ -1,6 +1,9 @@
 from collections import namedtuple
 import random
-import json
+try:
+    import ujson as json
+except:
+    import json
 
 from rdbtools.parser import RdbCallback
 from rdbtools.callbacks import encode_key

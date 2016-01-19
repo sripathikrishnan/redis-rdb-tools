@@ -3,8 +3,11 @@ import struct
 import os
 import sys
 
-try :
-    from StringIO import StringIO
+try:
+    try:
+        from cStringIO import StringIO
+    except ImportError:
+        from StringIO import StringIO
 except ImportError:
     from io import StringIO
     
