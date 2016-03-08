@@ -5,7 +5,7 @@ import sys
 import struct
 from rdbtools.parser import RdbCallback, RdbParser
 
-ESCAPE = re.compile(ur'[\x00-\x1f\\"\b\f\n\r\t\u2028\u2029]')
+ESCAPE = re.compile(r'[\x00-\x1f\\"\b\f\n\r\t\u2028\u2029]')
 ESCAPE_ASCII = re.compile(r'([\\"]|[^\ -~])')
 HAS_UTF8 = re.compile(r'[\x80-\xff]')
 ESCAPE_DCT = {
@@ -23,7 +23,7 @@ for i in range(0x20):
     ESCAPE_DCT.setdefault(chr(i), '\\u%04x' % (i,))
 
 def _floatconstants():
-    _BYTES = '7FF80000000000007FF0000000000000'.decode('hex')
+    _BYTES = b'\x7F\xF8\x00\x00\x00\x00\x00\x00\x7F\xF0\x00\x00\x00\x00\x00\x00'
     # The struct module in Python 2.4 would get frexp() out of range here
     # when an endian is specified in the format string. Fixed in Python 2.5+
     if sys.byteorder != 'big':
@@ -35,22 +35,12 @@ NaN, PosInf, NegInf = _floatconstants()
 
 def _encode_basestring(s):
     """Return a JSON representation of a Python string"""
-    if isinstance(s, str) and HAS_UTF8.search(s) is not None:
-        s = s.decode('utf-8')
-    def replace(match):
-        return ESCAPE_DCT[match.group(0)]
-    return u'"' + ESCAPE.sub(replace, s) + u'"'
+    return json.dumps(s)
 
 def _encode_basestring_ascii(s):
     """Return an ASCII-only JSON representation of a Python string
 
     """
-    try :
-        if isinstance(s, str) and HAS_UTF8.search(s) is not None:
-            s = s.decode('utf-8')
-    except:
-        pass
-
     def replace(match):
         s = match.group(0)
         try:
@@ -66,7 +56,7 @@ def _encode_basestring_ascii(s):
                 s1 = 0xd800 | ((n >> 10) & 0x3ff)
                 s2 = 0xdc00 | (n & 0x3ff)
                 return '\\u%04x\\u%04x' % (s1, s2)
-    return '"' + str(ESCAPE_ASCII.sub(replace, s)) + '"'
+    return '"' + str(ESCAPE_ASCII.sub(replace, _encode_basestring(s))) + '"'
 
 def _encode(s, quote_numbers = True):
     if quote_numbers:

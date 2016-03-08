@@ -24,6 +24,6 @@ class MemoryCallbackTestCase(unittest.TestCase):
 
     def test_len_largest_element(self):
         stats = get_stats('ziplist_that_compresses_easily.rdb')
-        self.assertEqual(stats['ziplist_compresses_easily'].len_largest_element, 36, "Length of largest element does not match")
+        self.assertEqual(stats[b'ziplist_compresses_easily'].len_largest_element, 36, "Length of largest element does not match")
         
     
