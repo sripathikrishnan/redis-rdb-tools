@@ -629,6 +629,11 @@ class RdbParser :
             self._filters['keys'] = re.compile(".*")
         else:
             self._filters['keys'] = re.compile(filters['keys'])
+        
+        if not ('not_keys' in filters and filters['not_keys']):
+            self._filters['not_keys'] = None
+        else:
+            self._filters['not_keys'] = re.compile(filters['not_keys'])
 
         if not 'types' in filters:
             self._filters['types'] = ('set', 'hash', 'sortedset', 'string', 'list')
@@ -641,6 +646,8 @@ class RdbParser :
         
     def matches_filter(self, db_number, key=None, data_type=None):
         if self._filters['dbs'] and (not db_number in self._filters['dbs']):
+            return False
+        if key and self._filters['not_keys'] and (self._filters['not_keys'].match(str(key))):
             return False
         if key and (not self._filters['keys'].match(str(key))):
             return False

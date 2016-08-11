@@ -76,7 +76,23 @@ class PrintAllKeys():
     def next_record(self, record) :
         self._out.write("%d,%s,%s,%d,%s,%d,%d\n" % (record.database, record.type, encode_key(record.key), 
                                                  record.bytes, record.encoding, record.size, record.len_largest_element))
+
+class PrintJustKeys():
+    def __init__(self, out):
+        self._out = out
     
+    def next_record(self, record) :
+        self._out.write("%s\n" % encode_key(record.key))
+        
+
+class PrintJustKeyVals():
+    def __init__(self, out):
+        self._out = out
+    
+    def next_record(self, record) :
+        self._out.write("%s %s\n" % encode_key(record.key))
+        
+  
 class MemoryCallback(RdbCallback):
     '''Calculates the memory used if this rdb file were loaded into RAM
         The memory usage is approximate, and based on heuristics.
