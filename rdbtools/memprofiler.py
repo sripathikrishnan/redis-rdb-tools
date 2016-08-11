@@ -475,12 +475,15 @@ class MemoryCallback(RdbCallback):
             return level
         else:
             return ZSKIPLIST_MAXLEVEL
-        
+
+MAXINT = 2**63 - 1
+
 def element_length(element):
     if isinstance(element, int):
-        return 8
-    if isinstance(element, long):
-        return 16
+        if element < - MAXINT - 1 or element > MAXINT:
+            return 16
+        else:
+            return 8
     else:
         return len(element)
 
