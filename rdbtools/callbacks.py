@@ -4,6 +4,7 @@ from decimal import Decimal
 import sys
 import struct
 from rdbtools.parser import RdbCallback, RdbParser
+from .compat import isinteger
 
 ESCAPE = re.compile(ur'[\x00-\x1f\\"\b\f\n\r\t\u2028\u2029]')
 ESCAPE_ASCII = re.compile(r'([\\"]|[^\ -~])')
@@ -73,7 +74,7 @@ def _encode(s, quote_numbers = True):
         qn = '"'
     else:
         qn = ''
-    if isinstance(s, int) or isinstance(s, long):
+    if isinteger(s):
         return qn + str(s) + qn
     elif isinstance(s, float):
         if s != s:
