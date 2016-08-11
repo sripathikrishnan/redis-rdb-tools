@@ -587,7 +587,7 @@ class RdbParser(object):
         num_entries = read_unsigned_short(buff)
         if (num_entries % 2) :
             raise Exception('read_zset_from_ziplist', "Expected even number of elements, but found %d for key %s" % (num_entries, self._key))
-        num_entries = num_entries /2
+        num_entries = num_entries // 2
         self._callback.start_sorted_set(self._key, num_entries, self._expiry, info={'encoding':'ziplist', 'sizeof_value':len(raw_string)})
         for x in xrange(0, num_entries) :
             member = self.read_ziplist_entry(buff)
@@ -608,7 +608,7 @@ class RdbParser(object):
         num_entries = read_unsigned_short(buff)
         if (num_entries % 2) :
             raise Exception('read_hash_from_ziplist', "Expected even number of elements, but found %d for key %s" % (num_entries, self._key))
-        num_entries = num_entries /2
+        num_entries = num_entries // 2
         self._callback.start_hash(self._key, num_entries, self._expiry, info={'encoding':'ziplist', 'sizeof_value':len(raw_string)})
         for x in xrange(0, num_entries) :
             field = self.read_ziplist_entry(buff)
@@ -794,7 +794,9 @@ def ntohl(f) :
     return new_val
 
 def to_datetime(usecs_since_epoch):
-    seconds_since_epoch = usecs_since_epoch / 1000000
+    seconds_since_epoch = usecs_since_epoch // 1000000
+    if seconds_since_epoch > 221925052800 :
+        seconds_since_epoch = 221925052800
     useconds = usecs_since_epoch % 1000000
     dt = datetime.datetime.utcfromtimestamp(seconds_since_epoch)
     delta = datetime.timedelta(microseconds = useconds)
