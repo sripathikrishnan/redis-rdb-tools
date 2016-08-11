@@ -19,7 +19,7 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
                   help="Database Number. Multiple databases can be provided. If not specified, all databases will be included.")
     parser.add_option("-k", "--key", dest="keys", default=None,
                   help="Keys to export. This can be a regular expression")
-    parser.add_option("-n", "--not-key", dest="keys", default=None,
+    parser.add_option("-o", "--not-key", dest="not_keys", default=None,
                   help="Keys Not to export. This can be a regular expression")
     parser.add_option("-t", "--type", dest="types", action="append",
                   help="""Data types to include. Possible values are string, hash, set, sortedset, list. Multiple typees can be provided. 
