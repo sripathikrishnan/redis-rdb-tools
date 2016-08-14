@@ -19,7 +19,7 @@ def main():
     usage = """usage: %prog [options] redis-key
 Examples :
 %prog user:13423
-%prog -h localhost -p 6379 user:13423
+%prog -s localhost -p 6379 user:13423
 """
 
     parser = OptionParser(usage=usage)

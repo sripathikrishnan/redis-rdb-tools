@@ -278,26 +278,23 @@ class MockRedis(RdbCallback):
             raise Exception('Lengths mismatch on set %s, expected length = %d, actual = %d'
                                  % (key, self.lengths[self.dbnum][key], len(self.currentdb()[key])))
 
-    def start_list(self, key, length, expiry, info):
+    def start_list(self, key, expiry, info):
         if key in self.currentdb() :
             raise Exception('start_list called with key %s that already exists' % key)
         else :
             self.currentdb()[key] = []
         if expiry :
             self.store_expiry(key, expiry)
-        self.store_length(key, length)
-    
+
     def rpush(self, key, value) :
         if not key in self.currentdb() :
             raise Exception('start_list not called for key = %s', key)
         self.currentdb()[key].append(value)
-    
-    def end_list(self, key):
+
+    def end_list(self, key, info):
         if not key in self.currentdb() :
             raise Exception('start_set not called for key = %s', key)
-        if len(self.currentdb()[key]) != self.lengths[self.dbnum][key] :
-            raise Exception('Lengths mismatch on list %s, expected length = %d, actual = %d'
-                                 % (key, self.lengths[self.dbnum][key], len(self.currentdb()[key])))
+        self.store_length(key, self.lengths[self.dbnum][key])
 
     def start_sorted_set(self, key, length, expiry, info):
         if key in self.currentdb() :
