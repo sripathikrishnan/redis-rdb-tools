@@ -2,7 +2,7 @@
 import os
 import sys
 from optparse import OptionParser
-from rdbtools import RdbParser, JSONCallback, DiffCallback, MemoryCallback, ProtocolCallback, PrintAllKeys
+from rdbtools import RdbParser, JSONCallback, DiffCallback, MemoryCallback, ProtocolCallback, PrintAllKeys, JSONCallbackWithKeyType
 
 VALID_TYPES = ("hash", "set", "string", "list", "sortedset")
 def main():
@@ -56,6 +56,8 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
                 callback = DiffCallback(f)
             elif 'json' == options.command:
                 callback = JSONCallback(f)
+            elif 'jsonkey' == options.command:
+                callback = JSONCallbackWithKeyType(f);
             elif 'memory' == options.command:
                 reporter = PrintAllKeys(f)
                 callback = MemoryCallback(reporter, 64)
@@ -70,6 +72,8 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
             callback = DiffCallback(sys.stdout)
         elif 'json' == options.command:
             callback = JSONCallback(sys.stdout)
+        elif 'jsonkey' == options.command:
+            callback = JSONCallbackWithKeyType(sys.stdout);
         elif 'memory' == options.command:
             reporter = PrintAllKeys(sys.stdout)
             callback = MemoryCallback(reporter, 64)

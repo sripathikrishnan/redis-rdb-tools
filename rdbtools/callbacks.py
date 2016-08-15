@@ -93,6 +93,101 @@ def encode_key(s):
 def encode_value(s):
     return _encode(s, quote_numbers=False)
 
+class JSONCallbackWithKeyType(RdbCallback):
+    def __init__(self, out):
+        self._out = out
+        self._is_first_db = True
+        self._has_databases = False
+        self._is_first_key_in_db = True
+        self._elements_in_key = 0 
+        self._element_index = 0
+        
+    def start_rdb(self):
+        self._out.write('[')
+    
+    def start_database(self, db_number):
+        # if not self._is_first_db:
+        #     self._out.write('},')
+        # self._out.write('{')
+        self._is_first_db = False
+        self._has_databases = True
+        self._is_first_key_in_db = True
+
+    def end_database(self, db_number):
+        pass
+        
+    def end_rdb(self):
+        # if self._has_databases:
+        #     self._out.write('}')
+        self._out.write(']')
+
+    def _start_key(self, key, length):
+        if not self._is_first_key_in_db:
+            self._out.write(',')
+        self._out.write('\r\n')
+        self._is_first_key_in_db = False
+        self._elements_in_key = length
+        self._element_index = 0
+    
+    def _end_key(self, key):
+        pass
+    
+    def _write_comma(self):
+        if self._element_index > 0 and self._element_index < self._elements_in_key :
+            self._out.write(',')
+        self._element_index = self._element_index + 1
+        
+    def set(self, key, value, expiry, info):
+        self._start_key(key, 0)
+        self._out.write('{"type" : "string", "val" :{ %s:%s}}' % (encode_key(key), encode_value(value)))
+    
+    def start_hash(self, key, length, expiry, info):
+        self._start_key(key, length)
+        self._out.write('{"type" : "hash" , "val" : {%s:{' % encode_key(key))
+    
+    def hset(self, key, field, value):
+        self._write_comma()
+        self._out.write('%s:%s' % (encode_key(field), encode_value(value)))
+    
+    def end_hash(self, key):
+        self._end_key(key)
+        self._out.write('}}}')
+    
+    def start_set(self, key, cardinality, expiry, info):
+        self._start_key(key, cardinality)
+        self._out.write('{"type" : "set" , "val" : {%s:[' % encode_key(key))
+
+    def sadd(self, key, member):
+        self._write_comma()
+        self._out.write('%s' % encode_value(member))
+    
+    def end_set(self, key):
+        self._end_key(key)
+        self._out.write(']}}')
+    
+    def start_list(self, key, length, expiry, info):
+        self._start_key(key, length)
+        self._out.write('{"type" : "list" , "val" : { %s:[' % encode_key(key))
+    
+    def rpush(self, key, value) :
+        self._write_comma()
+        self._out.write('%s' % encode_value(value))
+    
+    def end_list(self, key):
+        self._end_key(key)
+        self._out.write(']}}')
+    
+    def start_sorted_set(self, key, length, expiry, info):
+        self._start_key(key, length)
+        self._out.write('{"type" : "zset" , "val" :{ %s:{' % encode_key(key))
+    
+    def zadd(self, key, score, member):
+        self._write_comma()
+        self._out.write('%s:%s' % (encode_key(member), encode_value(score)))
+    
+    def end_sorted_set(self, key):
+        self._end_key(key)
+        self._out.write('}}}')
 
 class JSONCallback(RdbCallback):
     def __init__(self, out):
