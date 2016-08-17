@@ -294,7 +294,7 @@ class MockRedis(RdbCallback):
     def end_list(self, key, info):
         if not key in self.currentdb() :
             raise Exception('start_set not called for key = %s', key)
-        self.store_length(key, self.lengths[self.dbnum][key])
+        self.store_length(key, len(self.currentdb()[key]))
 
     def start_sorted_set(self, key, length, expiry, info):
         if key in self.currentdb() :
