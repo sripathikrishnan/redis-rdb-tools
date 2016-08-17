@@ -92,7 +92,7 @@ class PrintAllKeys():
         else:
             heappush(self._heap, (record.bytes, record))
 
-    def dump_heap(self):
+    def end_rdb(self):
         if self._largest is not None:
             self._heap = nlargest(int(self._largest), self._heap)
             self._largest = None
@@ -150,10 +150,13 @@ class MemoryCallback(RdbCallback):
         self._stream.next_record(record)
         record = MemoryRecord(self._dbnum, "dict", None, self.hashtable_overhead(self._db_expires), None, None, None)
         self._stream.next_record(record)
+        if hasattr(self._stream, 'end_database'):
+            self._stream.end_database(db_number)
 
     def end_rdb(self):
         #print('internal fragmentation: %s' % self._total_internal_frag)
-        self._stream.dump_heap()
+        if hasattr(self._stream, 'end_rdb'):
+            self._stream.end_rdb()
 
     def set(self, key, value, expiry, info):
         self._current_encoding = info['encoding']
