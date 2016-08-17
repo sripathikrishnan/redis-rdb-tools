@@ -22,6 +22,10 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
     parser.add_option("-t", "--type", dest="types", action="append",
                   help="""Data types to include. Possible values are string, hash, set, sortedset, list. Multiple typees can be provided. 
                     If not specified, all data types will be returned""")
+    parser.add_option("-b", "--bytes", dest="bytes", default=None,
+                  help="Limit memory output to keys greater to or equal to this value (in bytes)")
+    parser.add_option("-l", "--largest", dest="largest", default=None,
+                  help="Limit memory output to only the top N keys (by size)")
     
     (options, args) = parser.parse_args()
     
@@ -48,39 +52,25 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
                 raise Exception('Invalid type provided - %s. Expected one of %s' % (x, (", ".join(VALID_TYPES))))
             else:
                 filters['types'].append(x)
-    
-    # TODO : Fix this ugly if-else code
-    if options.output:
-        with open(options.output, "wb") as f:
-            if 'diff' == options.command:
-                callback = DiffCallback(f)
-            elif 'json' == options.command:
-                callback = JSONCallback(f)
-            elif 'memory' == options.command:
-                reporter = PrintAllKeys(f)
-                callback = MemoryCallback(reporter, 64)
-            elif 'protocol' == options.command:
-                callback = ProtocolCallback(f)
-            else:
-                raise Exception('Invalid Command %s' % options.command)
-            parser = RdbParser(callback)
-            parser.parse(dump_file)
-    else:
-        if 'diff' == options.command:
-            callback = DiffCallback(sys.stdout)
-        elif 'json' == options.command:
-            callback = JSONCallback(sys.stdout)
-        elif 'memory' == options.command:
-            reporter = PrintAllKeys(sys.stdout)
-            callback = MemoryCallback(reporter, 64)
-        elif 'protocol' == options.command:
-            callback = ProtocolCallback(sys.stdout)
-        else:
-            raise Exception('Invalid Command %s' % options.command)
 
-        parser = RdbParser(callback, filters=filters)
-        parser.parse(dump_file)
-    
+    if options.output:
+        f = open(options.output, "wb")
+    else:
+        f = sys.stdout
+
+    try:
+        callback = {
+            'diff': lambda f: DiffCallback(f),
+            'json': lambda f: JSONCallback(f),
+            'memory': lambda f: MemoryCallback(PrintAllKeys(f, options.bytes, options.largest), 64),
+            'protocol': lambda f: ProtocolCallback(f)
+        }[options.command](f)
+    except:
+        raise Exception('Invalid Command %s' % options.command)
+
+    parser = RdbParser(callback, filters=filters)
+    parser.parse(dump_file)
+
 if __name__ == '__main__':
     main()
 

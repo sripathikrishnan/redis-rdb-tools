@@ -7,6 +7,8 @@ from distutils.version import StrictVersion
 from rdbtools.parser import RdbCallback
 from rdbtools.callbacks import encode_key
 
+from heapq import heappush, nlargest, heappop
+
 ZSKIPLIST_MAXLEVEL=32
 ZSKIPLIST_P=0.25
 REDIS_SHARED_INTEGERS = 10000
@@ -72,14 +74,32 @@ class StatsAggregator():
         return json.dumps({"aggregates":self.aggregates, "scatters":self.scatters, "histograms":self.histograms})
         
 class PrintAllKeys():
-    def __init__(self, out):
+    def __init__(self, out, bytes, largest):
+        self._bytes = bytes
+        self._largest = largest
         self._out = out
         self._out.write("%s,%s,%s,%s,%s,%s,%s\n" % ("database", "type", "key", 
                                                  "size_in_bytes", "encoding", "num_elements", "len_largest_element"))
+
+        if self._largest is not None:
+            self._heap = []
     
     def next_record(self, record) :
-        self._out.write("%d,%s,%s,%d,%s,%d,%d\n" % (record.database, record.type, encode_key(record.key), 
-                                                 record.bytes, record.encoding, record.size, record.len_largest_element))
+        if self._largest is None:
+            if self._bytes is None or record.bytes >= int(self._bytes):
+                self._out.write("%d,%s,%s,%d,%s,%d,%d\n" % (record.database, record.type, encode_key(record.key), 
+                                                         record.bytes, record.encoding, record.size, record.len_largest_element))
+        else:
+            heappush(self._heap, (record.bytes, record))
+
+    def dump_heap(self):
+        if self._largest is not None:
+            self._heap = nlargest(int(self._largest), self._heap)
+            self._largest = None
+
+            while self._heap:
+                bytes, record = heappop(self._heap)
+                self.next_record(record)
     
 class MemoryCallback(RdbCallback):
     '''Calculates the memory used if this rdb file were loaded into RAM
@@ -133,7 +153,7 @@ class MemoryCallback(RdbCallback):
 
     def end_rdb(self):
         #print('internal fragmentation: %s' % self._total_internal_frag)
-        pass
+        self._stream.dump_heap()
 
     def set(self, key, value, expiry, info):
         self._current_encoding = info['encoding']
