@@ -248,12 +248,11 @@ class DiffCallback(RdbCallback):
         pass
     
     def start_sorted_set(self, key, length, expiry, info):
-        self._index = 0
-    
+        pass
+
     def zadd(self, key, score, member):
-        self._out.write('db=%d %s[%d] -> {%s, score=%s}' % (self._dbnum, encode_key(key), self._index, encode_key(member), encode_value(score)))
+        self._out.write('db=%d %s -> {%s, score=%s}' % (self._dbnum, encode_key(key), encode_key(member), encode_value(score)))
         self.newline()
-        self._index = self._index + 1
     
     def end_sorted_set(self, key):
         pass
