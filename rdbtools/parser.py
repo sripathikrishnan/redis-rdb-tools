@@ -256,7 +256,7 @@ class RdbCallback(object):
         """Called to indicate we have completed parsing of the dump file"""
         pass
 
-class RdbParser :
+class RdbParser(object):
     """
     A Parser for Redis RDB Files
     
