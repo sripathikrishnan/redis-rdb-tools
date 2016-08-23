@@ -4,10 +4,19 @@ import sys
 import datetime
 import re
 
-try :
-    from StringIO import StringIO
+try:
+    try:
+        from cStringIO import StringIO
+    except ImportError:
+        from StringIO import StringIO
 except ImportError:
     from io import StringIO
+
+try:
+    import lzf
+    HAS_PYTHON_LZF = True
+except ImportError:
+    HAS_PYTHON_LZF = False
     
 REDIS_RDB_6BITLEN = 0
 REDIS_RDB_14BITLEN = 1
@@ -728,38 +737,41 @@ class RdbParser(object):
         return DATA_TYPE_MAPPING[data_type]
         
     def lzf_decompress(self, compressed, expected_length):
-        in_stream = bytearray(compressed)
-        in_len = len(in_stream)
-        in_index = 0
-        out_stream = bytearray()
-        out_index = 0
-    
-        while in_index < in_len :
-            ctrl = in_stream[in_index]
-            if not isinstance(ctrl, int) :
-                raise Exception('lzf_decompress', 'ctrl should be a number %s for key %s' % (str(ctrl), self._key))
-            in_index = in_index + 1
-            if ctrl < 32 :
-                for x in xrange(0, ctrl + 1) :
-                    out_stream.append(in_stream[in_index])
-                    #sys.stdout.write(chr(in_stream[in_index]))
-                    in_index = in_index + 1
-                    out_index = out_index + 1
-            else :
-                length = ctrl >> 5
-                if length == 7 :
-                    length = length + in_stream[in_index]
-                    in_index = in_index + 1
-                
-                ref = out_index - ((ctrl & 0x1f) << 8) - in_stream[in_index] - 1
+        if HAS_PYTHON_LZF:
+            return lzf.decompress(compressed, expected_length)
+        else:
+            in_stream = bytearray(compressed)
+            in_len = len(in_stream)
+            in_index = 0
+            out_stream = bytearray()
+            out_index = 0
+
+            while in_index < in_len :
+                ctrl = in_stream[in_index]
+                if not isinstance(ctrl, int) :
+                    raise Exception('lzf_decompress', 'ctrl should be a number %s for key %s' % (str(ctrl), self._key))
                 in_index = in_index + 1
-                for x in xrange(0, length + 2) :
-                    out_stream.append(out_stream[ref])
-                    ref = ref + 1
-                    out_index = out_index + 1
-        if len(out_stream) != expected_length :
-            raise Exception('lzf_decompress', 'Expected lengths do not match %d != %d for key %s' % (len(out_stream), expected_length, self._key))
-        return str(out_stream)
+                if ctrl < 32 :
+                    for x in xrange(0, ctrl + 1) :
+                        out_stream.append(in_stream[in_index])
+                        #sys.stdout.write(chr(in_stream[in_index]))
+                        in_index = in_index + 1
+                        out_index = out_index + 1
+                else :
+                    length = ctrl >> 5
+                    if length == 7 :
+                        length = length + in_stream[in_index]
+                        in_index = in_index + 1
+
+                    ref = out_index - ((ctrl & 0x1f) << 8) - in_stream[in_index] - 1
+                    in_index = in_index + 1
+                    for x in xrange(0, length + 2) :
+                        out_stream.append(out_stream[ref])
+                        ref = ref + 1
+                        out_index = out_index + 1
+            if len(out_stream) != expected_length :
+                raise Exception('lzf_decompress', 'Expected lengths do not match %d != %d for key %s' % (len(out_stream), expected_length, self._key))
+            return str(out_stream)
 
 def skip(f, free):
     if free :
