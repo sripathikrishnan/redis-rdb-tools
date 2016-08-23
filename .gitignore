@@ -9,3 +9,4 @@ tests/dumps/dump_dealers_vins.rdb
 tests/dumps/dump_random_lists.rdb
 tests/dumps/dump_sorted_sets.rdb
 
+.idea/*
