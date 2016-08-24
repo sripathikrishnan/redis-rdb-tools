@@ -166,15 +166,16 @@ class JSONCallback(RdbCallback):
         self._end_key(key)
         self._out.write(']')
     
-    def start_list(self, key, length, expiry, info):
-        self._start_key(key, length)
+    def start_list(self, key, expiry, info):
+        self._start_key(key, 0)
         self._out.write('%s:[' % encode_key(key))
     
     def rpush(self, key, value) :
+        self._elements_in_key += 1
         self._write_comma()
         self._out.write('%s' % encode_value(value))
     
-    def end_list(self, key):
+    def end_list(self, key, info):
         self._end_key(key)
         self._out.write(']')
     
@@ -235,7 +236,7 @@ class DiffCallback(RdbCallback):
     def end_set(self, key):
         pass
     
-    def start_list(self, key, length, expiry, info):
+    def start_list(self, key, expiry, info):
         self._index = 0
             
     def rpush(self, key, value) :
@@ -243,16 +244,15 @@ class DiffCallback(RdbCallback):
         self.newline()
         self._index = self._index + 1
     
-    def end_list(self, key):
+    def end_list(self, key, info):
         pass
     
     def start_sorted_set(self, key, length, expiry, info):
-        self._index = 0
-    
+        pass
+
     def zadd(self, key, score, member):
-        self._out.write('db=%d %s[%d] -> {%s, score=%s}' % (self._dbnum, encode_key(key), self._index, encode_key(member), encode_value(score)))
+        self._out.write('db=%d %s -> {%s, score=%s}' % (self._dbnum, encode_key(key), encode_key(member), encode_value(score)))
         self.newline()
-        self._index = self._index + 1
     
     def end_sorted_set(self, key):
         pass
@@ -333,13 +333,13 @@ class ProtocolCallback(RdbCallback):
 
     # List handling
 
-    def start_list(self, key, length, expiry, info):
+    def start_list(self, key, expiry, info):
         self.pre_expiry(key, expiry)
 
     def rpush(self, key, value):
         self.emit('RPUSH', key, value)
 
-    def end_list(self, key):
+    def end_list(self, key, info):
         self.post_expiry(key)
 
     # Sorted set handling

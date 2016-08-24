@@ -3,8 +3,11 @@ import struct
 import os
 import sys
 
-try :
-    from StringIO import StringIO
+try:
+    try:
+        from cStringIO import StringIO
+    except ImportError:
+        from StringIO import StringIO
 except ImportError:
     from io import StringIO
     
@@ -19,7 +22,7 @@ def main():
     usage = """usage: %prog [options] redis-key
 Examples :
 %prog user:13423
-%prog -h localhost -p 6379 user:13423
+%prog -s localhost -p 6379 user:13423
 """
 
     parser = OptionParser(usage=usage)
@@ -83,7 +86,7 @@ def check_redis_version(redis):
 def read_unsigned_char(f) :
     return struct.unpack('B', f.read(1))[0]
 
-class PrintMemoryUsage():
+class PrintMemoryUsage(object):
     def next_record(self, record) :
         print("%s\t\t\t\t%s" % ("Key", encode_key(record.key)))
         print("%s\t\t\t\t%s" % ("Bytes", record.bytes))
