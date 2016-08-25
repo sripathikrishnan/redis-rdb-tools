@@ -2,7 +2,7 @@
 import os
 import sys
 from optparse import OptionParser
-from rdbtools import RdbParser, JSONCallback, DiffCallback, MemoryCallback, ProtocolCallback, PrintAllKeys, PrintJustKeys, PrintJustKeyVals
+from rdbtools import RdbParser, JSONCallback, DiffCallback, MemoryCallback, ProtocolCallback, PrintAllKeys, KeysOnlyCallback, KeyValsOnlyCallback
 
 VALID_TYPES = ("hash", "set", "string", "list", "sortedset")
 def main():
@@ -67,8 +67,8 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
         callback = {
             'diff': lambda f: DiffCallback(f),
             'json': lambda f: JSONCallback(f),
-            'justkeys': lambda f: MemoryCallback(PrintJustKeys(f), 64),
-            'justkeyvals': lambda f: MemoryCallback(PrintJustKeyVals(f), 64),
+            'justkeys': lambda f: KeysOnlyCallback(f),
+            'justkeyvals': lambda f: KeyValsOnlyCallback(f),
             'memory': lambda f: MemoryCallback(PrintAllKeys(f, options.bytes, options.largest), 64),
             'protocol': lambda f: ProtocolCallback(f)
         }[options.command](f)

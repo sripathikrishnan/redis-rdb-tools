@@ -110,15 +110,7 @@ class PrintJustKeys(object):
     
     def next_record(self, record):
         self._out.write("%s\n" % encode_key(record.key))
-        
 
-class PrintJustKeyVals(object):
-    def __init__(self, out):
-        self._out = out
-    
-    def next_record(self, record):
-        self._out.write("%s %s\n" % (encode_key(record.key), encode_value(record.value)))
-   
 
 class MemoryCallback(RdbCallback):
     '''Calculates the memory used if this rdb file were loaded into RAM
