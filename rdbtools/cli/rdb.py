@@ -2,7 +2,7 @@
 import os
 import sys
 from optparse import OptionParser
-from rdbtools import RdbParser, JSONCallback, DiffCallback, MemoryCallback, ProtocolCallback, PrintAllKeys
+from rdbtools import RdbParser, JSONCallback, DiffCallback, MemoryCallback, ProtocolCallback, PrintAllKeys, KeysOnlyCallback, KeyValsOnlyCallback
 
 VALID_TYPES = ("hash", "set", "string", "list", "sortedset")
 def main():
@@ -12,13 +12,15 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
 
     parser = OptionParser(usage=usage)
     parser.add_option("-c", "--command", dest="command",
-                  help="Command to execute. Valid commands are json, diff, and protocol", metavar="FILE")
+                  help="Command to execute. Valid commands are json, diff, justkeys, justkeyvals and protocol", metavar="FILE")
     parser.add_option("-f", "--file", dest="output",
                   help="Output file", metavar="FILE")
     parser.add_option("-n", "--db", dest="dbs", action="append",
                   help="Database Number. Multiple databases can be provided. If not specified, all databases will be included.")
     parser.add_option("-k", "--key", dest="keys", default=None,
                   help="Keys to export. This can be a regular expression")
+    parser.add_option("-o", "--not-key", dest="not_keys", default=None,
+                  help="Keys Not to export. This can be a regular expression")
     parser.add_option("-t", "--type", dest="types", action="append",
                   help="""Data types to include. Possible values are string, hash, set, sortedset, list. Multiple typees can be provided. 
                     If not specified, all data types will be returned""")
@@ -44,6 +46,9 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
     
     if options.keys:
         filters['keys'] = options.keys
+        
+    if options.not_keys:
+        filters['not_keys'] = options.not_keys
     
     if options.types:
         filters['types'] = []
@@ -57,11 +62,13 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
         f = open(options.output, "wb")
     else:
         f = sys.stdout
-
+    
     try:
         callback = {
             'diff': lambda f: DiffCallback(f),
             'json': lambda f: JSONCallback(f),
+            'justkeys': lambda f: KeysOnlyCallback(f),
+            'justkeyvals': lambda f: KeyValsOnlyCallback(f),
             'memory': lambda f: MemoryCallback(PrintAllKeys(f, options.bytes, options.largest), 64),
             'protocol': lambda f: ProtocolCallback(f)
         }[options.command](f)
@@ -73,4 +80,3 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
 
 if __name__ == '__main__':
     main()
-

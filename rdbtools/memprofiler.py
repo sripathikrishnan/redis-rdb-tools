@@ -8,7 +8,7 @@ except:
     import json
 
 from rdbtools.parser import RdbCallback
-from rdbtools.callbacks import encode_key
+from rdbtools.callbacks import encode_key, encode_value
 
 from heapq import heappush, nlargest, heappop
 
@@ -103,7 +103,15 @@ class PrintAllKeys(object):
             while self._heap:
                 bytes, record = heappop(self._heap)
                 self.next_record(record)
+
+class PrintJustKeys(object):
+    def __init__(self, out):
+        self._out = out
     
+    def next_record(self, record):
+        self._out.write("%s\n" % encode_key(record.key))
+
+
 class MemoryCallback(RdbCallback):
     '''Calculates the memory used if this rdb file were loaded into RAM
         The memory usage is approximate, and based on heuristics.
