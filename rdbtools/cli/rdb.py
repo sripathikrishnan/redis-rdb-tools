@@ -68,7 +68,7 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
             'diff': lambda f: DiffCallback(f),
             'json': lambda f: JSONCallback(f),
             'justkeys': lambda f: MemoryCallback(PrintJustKeys(f), 64),
-            'justkeysvals': lambda f: MemoryCallback(PrintJustKeyVals(f), 64),
+            'justkeyvals': lambda f: MemoryCallback(PrintJustKeyVals(f), 64),
             'memory': lambda f: MemoryCallback(PrintAllKeys(f, options.bytes, options.largest), 64),
             'protocol': lambda f: ProtocolCallback(f)
         }[options.command](f)
