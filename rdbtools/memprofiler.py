@@ -78,6 +78,8 @@ class PrintAllKeys():
                                                  "size_in_bytes", "encoding", "num_elements", "len_largest_element"))
     
     def next_record(self, record) :
+        if record.key is None:
+            return  # some records are not keys (e.g. dict)
         self._out.write("%d,%s,%s,%d,%s,%d,%d\n" % (record.database, record.type, encode_key(record.key), 
                                                  record.bytes, record.encoding, record.size, record.len_largest_element))
     
