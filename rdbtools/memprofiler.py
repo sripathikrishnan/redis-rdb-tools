@@ -88,6 +88,8 @@ class PrintAllKeys(object):
             self._heap = []
     
     def next_record(self, record) :
+        if record.key is None:
+            return  # some records are not keys (e.g. dict)
         if self._largest is None:
             if self._bytes is None or record.bytes >= int(self._bytes):
                 self._out.write("%d,%s,%s,%d,%s,%d,%d\n" % (record.database, record.type, encode_key(record.key), 
