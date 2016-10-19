@@ -4,6 +4,7 @@ import sys
 import datetime
 import re
 from .compat import range
+from io import BytesIO
 
 try:
     try:
@@ -531,7 +532,7 @@ class RdbParser(object):
 
     def read_intset(self, f) :
         raw_string = self.read_string(f)
-        buff = StringIO(raw_string)
+        buff = BytesIO(raw_string)
         encoding = read_unsigned_int(buff)
         num_entries = read_unsigned_int(buff)
         self._callback.start_set(self._key, num_entries, self._expiry, info={'encoding':'intset', 'sizeof_value':len(raw_string)})
@@ -549,7 +550,7 @@ class RdbParser(object):
 
     def read_ziplist(self, f) :
         raw_string = self.read_string(f)
-        buff = StringIO(raw_string)
+        buff = BytesIO(raw_string)
         zlbytes = read_unsigned_int(buff)
         tail_offset = read_unsigned_int(buff)
         num_entries = read_unsigned_short(buff)
@@ -582,7 +583,7 @@ class RdbParser(object):
 
     def read_zset_from_ziplist(self, f) :
         raw_string = self.read_string(f)
-        buff = StringIO(raw_string)
+        buff = BytesIO(raw_string)
         zlbytes = read_unsigned_int(buff)
         tail_offset = read_unsigned_int(buff)
         num_entries = read_unsigned_short(buff)
@@ -593,7 +594,7 @@ class RdbParser(object):
         for x in range(0, num_entries) :
             member = self.read_ziplist_entry(buff)
             score = self.read_ziplist_entry(buff)
-            if isinstance(score, str) :
+            if isinstance(score, bytes) :
                 score = float(score)
             self._callback.zadd(self._key, score, member)
         zlist_end = read_unsigned_char(buff)
@@ -603,7 +604,7 @@ class RdbParser(object):
 
     def read_hash_from_ziplist(self, f) :
         raw_string = self.read_string(f)
-        buff = StringIO(raw_string)
+        buff = BytesIO(raw_string)
         zlbytes = read_unsigned_int(buff)
         tail_offset = read_unsigned_int(buff)
         num_entries = read_unsigned_short(buff)
@@ -687,7 +688,7 @@ class RdbParser(object):
             return None
 
     def verify_magic_string(self, magic_string) :
-        if magic_string != 'REDIS' :
+        if magic_string != b'REDIS' :
             raise Exception('verify_magic_string', 'Invalid File Format')
 
     def verify_version(self, version_str) :
@@ -711,7 +712,7 @@ class RdbParser(object):
             raise Exception('init_filter', 'invalid value for dbs in filter %s' %filters['dbs'])
         
         if not ('keys' in filters and filters['keys']):
-            self._filters['keys'] = re.compile(".*")
+            self._filters['keys'] = re.compile(b".*")
         else:
             self._filters['keys'] = re.compile(filters['keys'])
         
@@ -722,7 +723,7 @@ class RdbParser(object):
 
         if not 'types' in filters:
             self._filters['types'] = ('set', 'hash', 'sortedset', 'string', 'list')
-        elif isinstance(filters['types'], str):
+        elif isinstance(filters['types'], bytes):
             self._filters['types'] = (filters['types'], )
         elif isinstance(filters['types'], list):
             self._filters['types'] = [str(x) for x in filters['types']]
@@ -779,7 +780,7 @@ class RdbParser(object):
                         out_index = out_index + 1
             if len(out_stream) != expected_length :
                 raise Exception('lzf_decompress', 'Expected lengths do not match %d != %d for key %s' % (len(out_stream), expected_length, self._key))
-            return str(out_stream)
+            return bytes(out_stream)
 
 def skip(f, free):
     if free :
@@ -825,7 +826,7 @@ def read_big_endian_unsigned_int(f):
     return struct.unpack('>I', f.read(4))[0]
 
 def read_24bit_signed_number(f):
-    s = '0' + f.read(3)
+    s = b'0' + f.read(3)
     num = struct.unpack('i', s)[0]
     return num >> 8
     

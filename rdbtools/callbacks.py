@@ -24,7 +24,7 @@ for i in range(0x20):
     ESCAPE_DCT.setdefault(chr(i), '\\u%04x' % (i,))
 
 def _floatconstants():
-    _BYTES = '7FF80000000000007FF0000000000000'.decode('hex')
+    _BYTES = b'\x7F\xF8\x00\x00\x00\x00\x00\x00\x7F\xF0\x00\x00\x00\x00\x00\x00'
     # The struct module in Python 2.4 would get frexp() out of range here
     # when an endian is specified in the format string. Fixed in Python 2.5+
     if sys.byteorder != 'big':
