@@ -3,6 +3,7 @@ import io
 import sys
 import datetime
 import re
+from .compat import range
 
 try:
     try:
@@ -428,7 +429,7 @@ class RdbParser(object):
             # and the last string is the tail of the list
             length = self.read_length(f)
             self._callback.start_list(self._key, self._expiry, info={'encoding':'linkedlist' })
-            for count in xrange(0, length) :
+            for count in range(0, length) :
                 val = self.read_string(f)
                 self._callback.rpush(self._key, val)
             self._callback.end_list(self._key, info={'encoding':'linkedlist' })
@@ -438,14 +439,14 @@ class RdbParser(object):
             # Note that the order of strings is non-deterministic
             length = self.read_length(f)
             self._callback.start_set(self._key, length, self._expiry, info={'encoding':'hashtable'})
-            for count in xrange(0, length) :
+            for count in range(0, length) :
                 val = self.read_string(f)
                 self._callback.sadd(self._key, val)
             self._callback.end_set(self._key)
         elif enc_type == REDIS_RDB_TYPE_ZSET :
             length = self.read_length(f)
             self._callback.start_sorted_set(self._key, length, self._expiry, info={'encoding':'skiplist'})
-            for count in xrange(0, length) :
+            for count in range(0, length) :
                 val = self.read_string(f)
                 score = self.read_float(f)
                 self._callback.zadd(self._key, score, val)
@@ -453,7 +454,7 @@ class RdbParser(object):
         elif enc_type == REDIS_RDB_TYPE_HASH :
             length = self.read_length(f)
             self._callback.start_hash(self._key, length, self._expiry, info={'encoding':'hashtable'})
-            for count in xrange(0, length) :
+            for count in range(0, length) :
                 field = self.read_string(f)
                 value = self.read_string(f)
                 self._callback.hset(self._key, field, value)
@@ -524,7 +525,7 @@ class RdbParser(object):
             skip_strings = self.read_length(f)
         else :
             raise Exception('skip_object', 'Invalid object type %d for key %s' % (enc_type, self._key))
-        for x in xrange(0, skip_strings):
+        for x in range(0, skip_strings):
             self.skip_string(f)
 
 
@@ -534,7 +535,7 @@ class RdbParser(object):
         encoding = read_unsigned_int(buff)
         num_entries = read_unsigned_int(buff)
         self._callback.start_set(self._key, num_entries, self._expiry, info={'encoding':'intset', 'sizeof_value':len(raw_string)})
-        for x in xrange(0, num_entries) :
+        for x in range(0, num_entries) :
             if encoding == 8 :
                 entry = read_signed_long(buff)
             elif encoding == 4 :
@@ -553,7 +554,7 @@ class RdbParser(object):
         tail_offset = read_unsigned_int(buff)
         num_entries = read_unsigned_short(buff)
         self._callback.start_list(self._key, self._expiry, info={'encoding':'ziplist', 'sizeof_value':len(raw_string)})
-        for x in xrange(0, num_entries) :
+        for x in range(0, num_entries) :
             val = self.read_ziplist_entry(buff)
             self._callback.rpush(self._key, val)
         zlist_end = read_unsigned_char(buff)
@@ -565,14 +566,14 @@ class RdbParser(object):
         count = self.read_length(f)
         total_size = 0
         self._callback.start_list(self._key, self._expiry, info={'encoding': 'quicklist', 'zips': count})
-        for i in xrange(0, count):
+        for i in range(0, count):
             raw_string = self.read_string(f)
             total_size += len(raw_string)
             buff = StringIO(raw_string)
             zlbytes = read_unsigned_int(buff)
             tail_offset = read_unsigned_int(buff)
             num_entries = read_unsigned_short(buff)
-            for x in xrange(0, num_entries):
+            for x in range(0, num_entries):
                 self._callback.rpush(self._key, self.read_ziplist_entry(buff))
             zlist_end = read_unsigned_char(buff)
             if zlist_end != 255:
@@ -589,7 +590,7 @@ class RdbParser(object):
             raise Exception('read_zset_from_ziplist', "Expected even number of elements, but found %d for key %s" % (num_entries, self._key))
         num_entries = num_entries // 2
         self._callback.start_sorted_set(self._key, num_entries, self._expiry, info={'encoding':'ziplist', 'sizeof_value':len(raw_string)})
-        for x in xrange(0, num_entries) :
+        for x in range(0, num_entries) :
             member = self.read_ziplist_entry(buff)
             score = self.read_ziplist_entry(buff)
             if isinstance(score, str) :
@@ -610,7 +611,7 @@ class RdbParser(object):
             raise Exception('read_hash_from_ziplist', "Expected even number of elements, but found %d for key %s" % (num_entries, self._key))
         num_entries = num_entries // 2
         self._callback.start_hash(self._key, num_entries, self._expiry, info={'encoding':'ziplist', 'sizeof_value':len(raw_string)})
-        for x in xrange(0, num_entries) :
+        for x in range(0, num_entries) :
             field = self.read_ziplist_entry(buff)
             value = self.read_ziplist_entry(buff)
             self._callback.hset(self._key, field, value)
@@ -759,7 +760,7 @@ class RdbParser(object):
                     raise Exception('lzf_decompress', 'ctrl should be a number %s for key %s' % (str(ctrl), self._key))
                 in_index = in_index + 1
                 if ctrl < 32 :
-                    for x in xrange(0, ctrl + 1) :
+                    for x in range(0, ctrl + 1) :
                         out_stream.append(in_stream[in_index])
                         #sys.stdout.write(chr(in_stream[in_index]))
                         in_index = in_index + 1
@@ -772,7 +773,7 @@ class RdbParser(object):
 
                     ref = out_index - ((ctrl & 0x1f) << 8) - in_stream[in_index] - 1
                     in_index = in_index + 1
-                    for x in xrange(0, length + 2) :
+                    for x in range(0, length + 2) :
                         out_stream.append(out_stream[ref])
                         ref = ref + 1
                         out_index = out_index + 1
