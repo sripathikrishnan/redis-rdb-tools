@@ -6,8 +6,15 @@ import struct
 from rdbtools.parser import RdbCallback, RdbParser
 from .compat import isinteger
 
-ESCAPE = re.compile(ur'[\x00-\x1f\\"\b\f\n\r\t\u2028\u2029]')
-ESCAPE_ASCII = re.compile(r'([\\"]|[^\ -~])')
+if sys.version_info < (3,):
+    import codecs
+    def u(x): return codecs.unicode_escape_decode(x)[0]
+else:
+    def u(x): return x
+
+ESCAPE = re.compile(u(r'[\x00-\x1f\\"\b\f\n\r\t\u2028\u2029]'))
+ESCAPE_ASCII = re.compile(br'([\\"]|[^\ -~])')
+
 HAS_UTF8 = re.compile(r'[\x80-\xff]')
 ESCAPE_DCT = {
     '\\': '\\\\',

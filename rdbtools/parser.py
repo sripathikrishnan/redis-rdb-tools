@@ -3,7 +3,7 @@ import io
 import sys
 import datetime
 import re
-from .compat import range
+from .compat import range, str2regexp
 from io import BytesIO
 
 try:
@@ -714,12 +714,12 @@ class RdbParser(object):
         if not ('keys' in filters and filters['keys']):
             self._filters['keys'] = re.compile(b".*")
         else:
-            self._filters['keys'] = re.compile(filters['keys'])
+            self._filters['keys'] = str2regexp(filters['keys'])
         
         if not ('not_keys' in filters and filters['not_keys']):
             self._filters['not_keys'] = None
         else:
-            self._filters['not_keys'] = re.compile(filters['not_keys'])
+            self._filters['not_keys'] = str2regexp(filters['not_keys'])
 
         if not 'types' in filters:
             self._filters['types'] = ('set', 'hash', 'sortedset', 'string', 'list')
@@ -731,11 +731,19 @@ class RdbParser(object):
             raise Exception('init_filter', 'invalid value for types in filter %s' %filters['types'])
         
     def matches_filter(self, db_number, key=None, data_type=None):
+
+        if isinstance(key, bytes):
+            key_to_match = key
+        elif isinstance(key, str): # bytes key in python2
+            key_to_match = key
+        else:
+            key_to_match = str(key).encode('utf-8')
+
         if self._filters['dbs'] and (not db_number in self._filters['dbs']):
             return False
-        if key and self._filters['not_keys'] and (self._filters['not_keys'].match(str(key))):
+        if key and self._filters['not_keys'] and (self._filters['not_keys'].match(key_to_match)):
             return False
-        if key and (not self._filters['keys'].match(str(key))):
+        if key and (not self._filters['keys'].match(key_to_match)):
             return False
 
         if data_type is not None and (not self.get_logical_type(data_type) in self._filters['types']):
