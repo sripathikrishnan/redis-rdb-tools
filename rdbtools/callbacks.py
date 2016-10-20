@@ -4,9 +4,17 @@ from decimal import Decimal
 import sys
 import struct
 from rdbtools.parser import RdbCallback, RdbParser
+from .compat import isinteger
 
-ESCAPE = re.compile(ur'[\x00-\x1f\\"\b\f\n\r\t\u2028\u2029]')
-ESCAPE_ASCII = re.compile(r'([\\"]|[^\ -~])')
+if sys.version_info < (3,):
+    import codecs
+    def u(x): return codecs.unicode_escape_decode(x)[0]
+else:
+    def u(x): return x
+
+ESCAPE = re.compile(u(r'[\x00-\x1f\\"\b\f\n\r\t\u2028\u2029]'))
+ESCAPE_ASCII = re.compile(br'([\\"]|[^\ -~])')
+
 HAS_UTF8 = re.compile(r'[\x80-\xff]')
 ESCAPE_DCT = {
     '\\': '\\\\',
@@ -23,7 +31,7 @@ for i in range(0x20):
     ESCAPE_DCT.setdefault(chr(i), '\\u%04x' % (i,))
 
 def _floatconstants():
-    _BYTES = '7FF80000000000007FF0000000000000'.decode('hex')
+    _BYTES = b'\x7F\xF8\x00\x00\x00\x00\x00\x00\x7F\xF0\x00\x00\x00\x00\x00\x00'
     # The struct module in Python 2.4 would get frexp() out of range here
     # when an endian is specified in the format string. Fixed in Python 2.5+
     if sys.byteorder != 'big':
@@ -73,7 +81,7 @@ def _encode(s, quote_numbers = True):
         qn = '"'
     else:
         qn = ''
-    if isinstance(s, int) or isinstance(s, long):
+    if isinteger(s):
         return qn + str(s) + qn
     elif isinstance(s, float):
         if s != s:

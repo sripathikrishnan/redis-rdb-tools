@@ -3,6 +3,7 @@ import random
 import string
 import shutil
 import os
+from rdbtools.compat import range
 
 r = redis.StrictRedis()
 r2 = redis.StrictRedis(db=2)
@@ -92,13 +93,13 @@ def zipmap_with_big_values():
     
 def dictionary() :
     num_entries = 1000
-    for x in xrange(0, num_entries) :
+    for x in range(0, num_entries) :
         r.hset("force_dictionary", random_string(50, x), random_string(50, x + num_entries))
 
 def ziplist_that_compresses_easily() :
     for length in (6, 12, 18, 24, 30, 36) :
-        r.rpush("ziplist_compresses_easily", ("".join("a" for x in xrange(length))))
-    
+        r.rpush("ziplist_compresses_easily", ("".join("a" for x in range(length))))
+
 def ziplist_that_doesnt_compress() :
     r.rpush("ziplist_doesnt_compress", "aj2410")
     r.rpush("ziplist_doesnt_compress", "cc953a17a8e096e76a44169ad3f9ac87c5f8248a403274416179aa9fbd852344")
@@ -131,7 +132,7 @@ def ziplist_with_integers() :
 
 def linkedlist() :
     num_entries = 1000
-    for x in xrange(0, num_entries) :
+    for x in range(0, num_entries) :
         r.rpush("force_linkedlist", random_string(50, x))
 
 def intset_16() :
@@ -164,7 +165,7 @@ def sorted_set_as_ziplist() :
     
 def regular_sorted_set() :
     num_entries = 500
-    for x in xrange(0, num_entries) :
+    for x in range(0, num_entries) :
         r.zadd("force_sorted_set", float(x) / 100, random_string(50, x))
     
 def random_string(length, seed) :
