@@ -413,8 +413,8 @@ class ProtocolCallback(RdbCallback):
     def emit(self, *args):
         self._out.write(u"*" + unicode(len(args)) + u"\r\n")
         for arg in args:
-            self._out.write(u"$" + unicode(len(unicode(arg))) + u"\r\n")
-            self._out.write(unicode(arg) + u"\r\n")
+            self._out.write(u"$" + unicode(len(str(arg))) + u"\r\n")
+            self._out.write(unicode(str(arg), 'utf-8') + u"\r\n")
 
     def start_database(self, db_number):
         self.reset()
