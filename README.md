@@ -128,7 +128,7 @@ Read [Redis Mass Insert](http://redis.io/topics/mass-insert) for more informatio
             See RdbCallback for all available callback methods.
             See JsonCallback for a concrete example
         ''' 
-        def set(self, key, value, expiry):
+        def set(self, key, value, expiry, info):
             print('%s = %s' % (str(key), str(value)))
         
         def hset(self, key, field, value):
