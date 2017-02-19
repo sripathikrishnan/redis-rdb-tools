@@ -213,7 +213,8 @@ def load_rdb_stream(file_name, filters=None) :
     return r
     
 class MockRedis(RdbCallback):
-    def __init__(self) :
+    def __init__(self):
+        super(MockRedis, self).__init__(string_escape=None)
         self.databases = {}
         self.lengths = {}
         self.expiry = {}

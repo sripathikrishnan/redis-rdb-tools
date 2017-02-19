@@ -3,16 +3,17 @@ import io
 import sys
 import datetime
 import re
+
+from rdbtools.encodehelpers import STRING_ESCAPE_RAW, apply_escape_bytes, bval
 from .compat import range, str2regexp
-from io import BytesIO
 
 try:
     try:
-        from cStringIO import StringIO
+        from cStringIO import StringIO as BytesIO
     except ImportError:
-        from StringIO import StringIO
+        from StringIO import StringIO as BytesIO
 except ImportError:
-    from io import StringIO
+    from io import BytesIO
 
 try:
     import lzf
@@ -59,6 +60,24 @@ class RdbCallback(object):
     This callback provides a serial and fast access to the dump file.
     
     """
+    def __init__(self, string_escape):
+        if string_escape is None:
+            self._escape = STRING_ESCAPE_RAW
+        else:
+            self._escape = string_escape
+
+    def encode_key(self, key):
+        """
+        Escape a given key bytes with the instance chosen escape method.
+
+        Key is not escaped if it contains only 'ASCII printable' bytes.
+        """
+        return apply_escape_bytes(key, self._escape, skip_printable=True)
+
+    def encode_value(self, val):
+        """Escape a given value bytes with the instance chosen escape method."""
+        return apply_escape_bytes(val, self._escape)
+
     def start_rdb(self):
         """
         Called once we know we are dealing with a valid redis dump file
@@ -570,7 +589,7 @@ class RdbParser(object):
         for i in range(0, count):
             raw_string = self.read_string(f)
             total_size += len(raw_string)
-            buff = StringIO(raw_string)
+            buff = BytesIO(raw_string)
             zlbytes = read_unsigned_int(buff)
             tail_offset = read_unsigned_int(buff)
             num_entries = read_unsigned_short(buff)
