@@ -23,7 +23,8 @@ except ImportError:
     
 REDIS_RDB_6BITLEN = 0
 REDIS_RDB_14BITLEN = 1
-REDIS_RDB_32BITLEN = 2
+REDIS_RDB_32BITLEN = 0x80
+REDIS_RDB_64BITLEN = 0x81
 REDIS_RDB_ENCVAL = 3
 
 REDIS_RDB_OPCODE_AUX = 250
@@ -38,6 +39,8 @@ REDIS_RDB_TYPE_LIST = 1
 REDIS_RDB_TYPE_SET = 2
 REDIS_RDB_TYPE_ZSET = 3
 REDIS_RDB_TYPE_HASH = 4
+REDIS_RDB_TYPE_ZSET_2 = 5  # ZSET version 2 with doubles stored in binary.
+REDIS_RDB_TYPE_MODULE = 6
 REDIS_RDB_TYPE_HASH_ZIPMAP = 9
 REDIS_RDB_TYPE_LIST_ZIPLIST = 10
 REDIS_RDB_TYPE_SET_INTSET = 11
@@ -51,7 +54,7 @@ REDIS_RDB_ENC_INT32 = 2
 REDIS_RDB_ENC_LZF = 3
 
 DATA_TYPE_MAPPING = {
-    0 : "string", 1 : "list", 2 : "set", 3 : "sortedset", 4 : "hash", 
+    0 : "string", 1 : "list", 2 : "set", 3 : "sortedset", 4 : "hash", 5 : "sortedset2", 6 : "module",
     9 : "hash", 10 : "list", 11 : "set", 12 : "sortedset", 13 : "hash", 14 : "list"}
 
 class RdbCallback(object):
@@ -393,8 +396,12 @@ class RdbParser(object):
         elif enc_type == REDIS_RDB_14BITLEN :
             bytes.append(read_unsigned_char(f))
             length = ((bytes[0]&0x3F)<<8)|bytes[1]
-        else :
+        elif bytes[0] == REDIS_RDB_32BITLEN:
             length = ntohl(f)
+        elif bytes[0] == REDIS_RDB_64BITLEN:
+            length = ntohu64(f)
+        else:
+            raise Exception('read_length_with_encoding', "Invalid string encoding %s (bytes[0] 0x%X)" % (enc_type, bytes[0]))
         return (length, is_encoded)
 
     def read_length(self, f) :
@@ -463,12 +470,15 @@ class RdbParser(object):
                 val = self.read_string(f)
                 self._callback.sadd(self._key, val)
             self._callback.end_set(self._key)
-        elif enc_type == REDIS_RDB_TYPE_ZSET :
+        elif enc_type == REDIS_RDB_TYPE_ZSET or enc_type == REDIS_RDB_TYPE_ZSET_2:
             length = self.read_length(f)
             self._callback.start_sorted_set(self._key, length, self._expiry, info={'encoding':'skiplist'})
             for count in range(0, length) :
                 val = self.read_string(f)
-                score = self.read_float(f)
+                if enc_type == REDIS_RDB_TYPE_ZSET_2 :
+                    score = read_binary_double(f)
+                else:
+                    score = self.read_float(f)
                 self._callback.zadd(self._key, score, val)
             self._callback.end_sorted_set(self._key)
         elif enc_type == REDIS_RDB_TYPE_HASH :
@@ -491,6 +501,8 @@ class RdbParser(object):
             self.read_hash_from_ziplist(f)
         elif enc_type == REDIS_RDB_TYPE_LIST_QUICKLIST:
             self.read_list_from_quicklist(f)
+        elif enc_type == REDIS_RDB_TYPE_MODULE :
+            raise Exception('read_object', 'Unable to read Redis Modules RDB objects (key %s)' % (enc_type, self._key))
         else :
             raise Exception('read_object', 'Invalid object type %d for key %s' % (enc_type, self._key))
 
@@ -527,7 +539,7 @@ class RdbParser(object):
             skip_strings = self.read_length(f)
         elif enc_type == REDIS_RDB_TYPE_SET :
             skip_strings = self.read_length(f)
-        elif enc_type == REDIS_RDB_TYPE_ZSET :
+        elif enc_type == REDIS_RDB_TYPE_ZSET or enc_type == REDIS_RDB_TYPE_ZSET_2 :
             skip_strings = self.read_length(f) * 2
         elif enc_type == REDIS_RDB_TYPE_HASH :
             skip_strings = self.read_length(f) * 2
@@ -712,7 +724,7 @@ class RdbParser(object):
 
     def verify_version(self, version_str) :
         version = int(version_str)
-        if version < 1 or version > 7: 
+        if version < 1 or version > 8: 
             raise Exception('verify_version', 'Invalid RDB version number %d' % version)
         self._rdb_version = version
 
@@ -741,7 +753,7 @@ class RdbParser(object):
             self._filters['not_keys'] = str2regexp(filters['not_keys'])
 
         if not 'types' in filters:
-            self._filters['types'] = ('set', 'hash', 'sortedset', 'string', 'list')
+            self._filters['types'] = ('set', 'hash', 'sortedset', 'sortedset2', 'module', 'string', 'list')
         elif isinstance(filters['types'], bytes):
             self._filters['types'] = (filters['types'], )
         elif isinstance(filters['types'], list):
@@ -813,14 +825,20 @@ def skip(f, free):
     if free :
         f.read(free)
 
+def memrev(arr):
+    l = len(arr)
+    new_arr = bytearray(l)
+    for i in range(l):
+        new_arr[-i-1] = arr[i]
+    return str(new_arr)
+
 def ntohl(f) :
-    val = read_unsigned_int(f)
-    new_val = 0
-    new_val = new_val | ((val & 0x000000ff) << 24)
-    new_val = new_val | ((val & 0xff000000) >> 24)
-    new_val = new_val | ((val & 0x0000ff00) << 8)
-    new_val = new_val | ((val & 0x00ff0000) >> 8)
-    return new_val
+    val = memrev(f.read(4))
+    return struct.unpack('I', val)[0]
+
+def ntohu64(f) :
+    val = memrev(f.read(8))
+    return struct.unpack('Q', val)[0]
 
 def to_datetime(usecs_since_epoch):
     seconds_since_epoch = usecs_since_epoch // 1000000
@@ -862,6 +880,9 @@ def read_signed_long(f) :
     
 def read_unsigned_long(f) :
     return struct.unpack('Q', f.read(8))[0]
+    
+def read_binary_double(f) :
+    return struct.unpack('d', f.read(8))[0]
 
 def string_as_hexcode(string) :
     for s in string :

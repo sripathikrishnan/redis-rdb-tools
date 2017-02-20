@@ -190,6 +190,13 @@ class RedisParserTestCase(unittest.TestCase):
         self.assertEquals(r.databases[0][b'abcdef'], b'abcdef')
         self.assertEquals(r.databases[0][b'longerstring'], b'thisisalongerstring.idontknowwhatitmeans')
 
+    def test_rdb_version_8_with_64b_length_and_scores(self):
+        r = load_rdb('rdb_version_8_with_64b_length_and_scores.rdb')
+        self.assertEquals(r.databases[0][b'foo'], b'bar')
+        zset = r.databases[0][b"bigset"]
+        self.assertEquals(len(zset), 1000)
+        self.assert_(floateq(zset[b'finalfield'], 2.718))
+
     def test_multiple_databases_stream(self):
         r = load_rdb_stream('multiple_databases.rdb')
         self.assert_(len(r.databases), 2)
