@@ -54,7 +54,7 @@ REDIS_RDB_ENC_INT32 = 2
 REDIS_RDB_ENC_LZF = 3
 
 DATA_TYPE_MAPPING = {
-    0 : "string", 1 : "list", 2 : "set", 3 : "sortedset", 4 : "hash", 5 : "sortedset2", 6 : "module",
+    0 : "string", 1 : "list", 2 : "set", 3 : "sortedset", 4 : "hash", 5 : "sortedset", 6 : "module",
     9 : "hash", 10 : "list", 11 : "set", 12 : "sortedset", 13 : "hash", 14 : "list"}
 
 class RdbCallback(object):
@@ -401,7 +401,7 @@ class RdbParser(object):
         elif bytes[0] == REDIS_RDB_64BITLEN:
             length = ntohu64(f)
         else:
-            raise Exception('read_length_with_encoding', "Invalid string encoding %s (bytes[0] 0x%X)" % (enc_type, bytes[0]))
+            raise Exception('read_length_with_encoding', "Invalid string encoding %s (encoding byte 0x%X)" % (enc_type, bytes[0]))
         return (length, is_encoded)
 
     def read_length(self, f) :
@@ -470,15 +470,12 @@ class RdbParser(object):
                 val = self.read_string(f)
                 self._callback.sadd(self._key, val)
             self._callback.end_set(self._key)
-        elif enc_type == REDIS_RDB_TYPE_ZSET or enc_type == REDIS_RDB_TYPE_ZSET_2:
+        elif enc_type == REDIS_RDB_TYPE_ZSET or enc_type == REDIS_RDB_TYPE_ZSET_2 :
             length = self.read_length(f)
             self._callback.start_sorted_set(self._key, length, self._expiry, info={'encoding':'skiplist'})
             for count in range(0, length) :
                 val = self.read_string(f)
-                if enc_type == REDIS_RDB_TYPE_ZSET_2 :
-                    score = read_binary_double(f)
-                else:
-                    score = self.read_float(f)
+                score = read_binary_double(f) if enc_type == REDIS_RDB_TYPE_ZSET_2 else self.read_float(f)
                 self._callback.zadd(self._key, score, val)
             self._callback.end_sorted_set(self._key)
         elif enc_type == REDIS_RDB_TYPE_HASH :
@@ -530,6 +527,13 @@ class RdbParser(object):
             bytes_to_skip = length
         
         skip(f, bytes_to_skip)
+        
+    def skip_float(self, f):
+        dbl_length = read_unsigned_char(f)
+        skip(f, dbl_length if dbl_length < 253 else 1)
+        
+    def skip_binary_double(self, f):
+        skip(f, 8)
 
     def skip_object(self, f, enc_type):
         skip_strings = 0
@@ -540,7 +544,10 @@ class RdbParser(object):
         elif enc_type == REDIS_RDB_TYPE_SET :
             skip_strings = self.read_length(f)
         elif enc_type == REDIS_RDB_TYPE_ZSET or enc_type == REDIS_RDB_TYPE_ZSET_2 :
-            skip_strings = self.read_length(f) * 2
+            length = self.read_length(f)
+            for x in range(length):
+                skip_string(f)
+                skip_binary_double(f) if enc_type == REDIS_RDB_TYPE_ZSET_2 else skip_float(f)
         elif enc_type == REDIS_RDB_TYPE_HASH :
             skip_strings = self.read_length(f) * 2
         elif enc_type == REDIS_RDB_TYPE_HASH_ZIPMAP :
@@ -555,6 +562,8 @@ class RdbParser(object):
             skip_strings = 1
         elif enc_type == REDIS_RDB_TYPE_LIST_QUICKLIST:
             skip_strings = self.read_length(f)
+        elif enc_type == REDIS_RDB_TYPE_MODULE:
+            raise Exception('skip_object', 'Unable to skip Redis Modules RDB objects (key %s)' % (enc_type, self._key))
         else :
             raise Exception('skip_object', 'Invalid object type %d for key %s' % (enc_type, self._key))
         for x in range(0, skip_strings):
@@ -753,7 +762,7 @@ class RdbParser(object):
             self._filters['not_keys'] = str2regexp(filters['not_keys'])
 
         if not 'types' in filters:
-            self._filters['types'] = ('set', 'hash', 'sortedset', 'sortedset2', 'module', 'string', 'list')
+            self._filters['types'] = ('set', 'hash', 'sortedset', 'module', 'string', 'list')
         elif isinstance(filters['types'], bytes):
             self._filters['types'] = (filters['types'], )
         elif isinstance(filters['types'], list):
