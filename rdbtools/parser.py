@@ -530,7 +530,8 @@ class RdbParser(object):
         
     def skip_float(self, f):
         dbl_length = read_unsigned_char(f)
-        skip(f, dbl_length if dbl_length < 253 else 1)
+        if dbl_length < 253:
+            skip(f, dbl_length)
         
     def skip_binary_double(self, f):
         skip(f, 8)
