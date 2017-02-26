@@ -1,11 +1,15 @@
-* 0.1.1
-    * Fixed lzf decompression
-    * Standard python project layout
-    * Python script to automatically create test RDB files
-    * Adds test cases
-    * Adds setup.py to easily install this library
-    * Adds MIT license
+* 0.1.9
+    * python 3 support
+    * rdb v8 (redis 4.0) support
+    * binary to string conversion fixes
+    * use ujson/cStringIO/python-lzf if they're available
+    * filter keys by size
+    * bugfixes parsing sorted sets
+    * fix setup.py dependancies and remove requirements.txt file
 
-* 0.1.0
-    * Initial version
-    * Specification for RDB file format
+* 0.1.8
+    * fix a crash in the memory profiler recently introduced.
+
+* 0.1.7
+    * rdb v7 (redis 3.2) support
+

@@ -2,7 +2,8 @@
 import os
 import sys
 from optparse import OptionParser
-from rdbtools import RdbParser, JSONCallback, DiffCallback, MemoryCallback, ProtocolCallback, PrintAllKeys
+from rdbtools import RdbParser, JSONCallback, DiffCallback, MemoryCallback, ProtocolCallback, PrintAllKeys, KeysOnlyCallback, KeyValsOnlyCallback
+from rdbtools.encodehelpers import ESCAPE_CHOICES
 
 VALID_TYPES = ("hash", "set", "string", "list", "sortedset")
 def main():
@@ -12,17 +13,25 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
 
     parser = OptionParser(usage=usage)
     parser.add_option("-c", "--command", dest="command",
-                  help="Command to execute. Valid commands are json, diff, and protocol", metavar="FILE")
+                  help="Command to execute. Valid commands are json, diff, justkeys, justkeyvals and protocol", metavar="FILE")
     parser.add_option("-f", "--file", dest="output",
                   help="Output file", metavar="FILE")
     parser.add_option("-n", "--db", dest="dbs", action="append",
                   help="Database Number. Multiple databases can be provided. If not specified, all databases will be included.")
     parser.add_option("-k", "--key", dest="keys", default=None,
                   help="Keys to export. This can be a regular expression")
+    parser.add_option("-o", "--not-key", dest="not_keys", default=None,
+                  help="Keys Not to export. This can be a regular expression")
     parser.add_option("-t", "--type", dest="types", action="append",
                   help="""Data types to include. Possible values are string, hash, set, sortedset, list. Multiple typees can be provided. 
                     If not specified, all data types will be returned""")
-    
+    parser.add_option("-b", "--bytes", dest="bytes", default=None,
+                  help="Limit memory output to keys greater to or equal to this value (in bytes)")
+    parser.add_option("-l", "--largest", dest="largest", default=None,
+                  help="Limit memory output to only the top N keys (by size)")
+    parser.add_option("-e", "--escape", dest="escape", choices=ESCAPE_CHOICES,
+                      help="Escape strings to encoding: {} (default), {}, {}, or {}.".format(*ESCAPE_CHOICES))
+
     (options, args) = parser.parse_args()
     
     if len(args) == 0:
@@ -40,6 +49,9 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
     
     if options.keys:
         filters['keys'] = options.keys
+        
+    if options.not_keys:
+        filters['not_keys'] = options.not_keys
     
     if options.types:
         filters['types'] = []
@@ -48,39 +60,33 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
                 raise Exception('Invalid type provided - %s. Expected one of %s' % (x, (", ".join(VALID_TYPES))))
             else:
                 filters['types'].append(x)
-    
-    # TODO : Fix this ugly if-else code
-    if options.output:
-        with open(options.output, "wb") as f:
-            if 'diff' == options.command:
-                callback = DiffCallback(f)
-            elif 'json' == options.command:
-                callback = JSONCallback(f)
-            elif 'memory' == options.command:
-                reporter = PrintAllKeys(f)
-                callback = MemoryCallback(reporter, 64)
-            elif 'protocol' == options.command:
-                callback = ProtocolCallback(f)
-            else:
-                raise Exception('Invalid Command %s' % options.command)
-            parser = RdbParser(callback)
-            parser.parse(dump_file)
-    else:
-        if 'diff' == options.command:
-            callback = DiffCallback(sys.stdout)
-        elif 'json' == options.command:
-            callback = JSONCallback(sys.stdout)
-        elif 'memory' == options.command:
-            reporter = PrintAllKeys(sys.stdout)
-            callback = MemoryCallback(reporter, 64)
-        elif 'protocol' == options.command:
-            callback = ProtocolCallback(sys.stdout)
+
+    out_file_obj = None
+    try:
+        if options.output:
+            out_file_obj = open(options.output, "wb")
         else:
+            # Prefer not to depend on Python stdout implementation for writing binary.
+            out_file_obj = os.fdopen(sys.stdout.fileno(), 'wb')
+
+        try:
+            callback = {
+                'diff': lambda f: DiffCallback(f, string_escape=options.escape),
+                'json': lambda f: JSONCallback(f, string_escape=options.escape),
+                'justkeys': lambda f: KeysOnlyCallback(f, string_escape=options.escape),
+                'justkeyvals': lambda f: KeyValsOnlyCallback(f, string_escape=options.escape),
+                'memory': lambda f: MemoryCallback(PrintAllKeys(f, options.bytes, options.largest),
+                                                   64, string_escape=options.escape),
+                'protocol': lambda f: ProtocolCallback(f, string_escape=options.escape)
+            }[options.command](out_file_obj)
+        except:
             raise Exception('Invalid Command %s' % options.command)
 
         parser = RdbParser(callback, filters=filters)
         parser.parse(dump_file)
-    
+    finally:
+        if options.output and out_file_obj is not None:
+            out_file_obj.close()
+
 if __name__ == '__main__':
     main()
-

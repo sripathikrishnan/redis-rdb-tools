@@ -3,14 +3,16 @@ import struct
 import os
 import sys
 
-try :
-    from StringIO import StringIO
+try:
+    try:
+        from cStringIO import StringIO as BytesIO
+    except ImportError:
+        from StringIO import StringIO as BytesIO
 except ImportError:
-    from io import StringIO
+    from io import BytesIO
     
 from optparse import OptionParser
 from rdbtools import RdbParser, JSONCallback, MemoryCallback
-from rdbtools.callbacks import encode_key
 
 from redis import StrictRedis
 from redis.exceptions import ConnectionError, ResponseError
@@ -45,14 +47,15 @@ def print_memory_for_key(key, host='localhost', port=6379, db=0, password=None):
     reporter = PrintMemoryUsage()
     callback = MemoryCallback(reporter, 64)
     parser = RdbParser(callback, filters={})
-    parser._key = key
+    #  DUMP command only return the key data, so we hack RdbParser to inject key name as parsed bytes.
+    parser._key = key.encode('utf-8')
 
     raw_dump = redis.execute_command('dump', key)
     if not raw_dump:
         sys.stderr.write('Key %s does not exist\n' % key)
         sys.exit(-1)
     
-    stream = StringIO(raw_dump)
+    stream = BytesIO(raw_dump)
     data_type = read_unsigned_char(stream)
     parser.read_object(stream, data_type)
 
@@ -83,9 +86,9 @@ def check_redis_version(redis):
 def read_unsigned_char(f) :
     return struct.unpack('B', f.read(1))[0]
 
-class PrintMemoryUsage():
+class PrintMemoryUsage(object):
     def next_record(self, record) :
-        print("%s\t\t\t\t%s" % ("Key", encode_key(record.key)))
+        print("%s\t\t\t\t%s" % ("Key", record.key))
         print("%s\t\t\t\t%s" % ("Bytes", record.bytes))
         print("%s\t\t\t\t%s" % ("Type", record.type))
         if record.type in ('set', 'list', 'sortedset', 'hash'):
