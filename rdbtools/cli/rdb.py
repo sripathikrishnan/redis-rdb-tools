@@ -30,7 +30,7 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
     parser.add_option("-l", "--largest", dest="largest", default=None,
                   help="Limit memory output to only the top N keys (by size)")
     parser.add_option("-e", "--escape", dest="escape", choices=ESCAPE_CHOICES,
-                      help="Escape strings to encoding: {} (default), {}, {}, or {}.".format(*ESCAPE_CHOICES))
+                      help="Escape strings to encoding: %s (default), %s, %s, or %s." % tuple(ESCAPE_CHOICES))
 
     (options, args) = parser.parse_args()
     

@@ -337,10 +337,10 @@ class ProtocolCallback(RdbCallback):
             self.expireat(key, self.get_expiry_seconds(key))
 
     def emit(self, *args):
-        self._out.write(codecs.encode("*{}\r\n".format(len(args)), 'ascii'))
+        self._out.write(codecs.encode("*%s\r\n" % len(args), 'ascii'))
         for arg in args:
             val = encodehelpers.apply_escape_bytes(arg, self._escape)
-            self._out.write(codecs.encode("${}\r\n".format(len(val)), 'ascii'))
+            self._out.write(codecs.encode("$%s\r\n" % len(val), 'ascii'))
             self._out.write(val + b"\r\n")
 
     def start_database(self, db_number):
