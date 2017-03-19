@@ -840,7 +840,7 @@ def memrev(arr):
     new_arr = bytearray(l)
     for i in range(l):
         new_arr[-i-1] = arr[i]
-    return str(new_arr)
+    return new_arr
 
 def ntohl(f) :
     val = memrev(f.read(4))
