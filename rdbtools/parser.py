@@ -397,9 +397,9 @@ class RdbParser(object):
             bytes.append(read_unsigned_char(f))
             length = ((bytes[0]&0x3F)<<8)|bytes[1]
         elif bytes[0] == REDIS_RDB_32BITLEN:
-            length = ntohl(f)
+            length = read_unsigned_int_be(f)
         elif bytes[0] == REDIS_RDB_64BITLEN:
-            length = ntohu64(f)
+            length = read_unsigned_long_be(f)
         else:
             raise Exception('read_length_with_encoding', "Invalid string encoding %s (encoding byte 0x%X)" % (enc_type, bytes[0]))
         return (length, is_encoded)
@@ -475,7 +475,7 @@ class RdbParser(object):
             self._callback.start_sorted_set(self._key, length, self._expiry, info={'encoding':'skiplist'})
             for count in range(0, length) :
                 val = self.read_string(f)
-                score = read_binary_double(f) if enc_type == REDIS_RDB_TYPE_ZSET_2 else self.read_float(f)
+                score = read_double(f) if enc_type == REDIS_RDB_TYPE_ZSET_2 else self.read_float(f)
                 self._callback.zadd(self._key, score, val)
             self._callback.end_sorted_set(self._key)
         elif enc_type == REDIS_RDB_TYPE_HASH :
@@ -677,7 +677,7 @@ class RdbParser(object):
             length = ((entry_header & 0x3F) << 8) | read_unsigned_char(f)
             value = f.read(length)
         elif (entry_header >> 6) == 2 :
-            length = read_big_endian_unsigned_int(f)
+            length = read_unsigned_int_be(f)
             value = f.read(length)
         elif (entry_header >> 4) == 12 :
             value = read_signed_short(f)
@@ -835,21 +835,6 @@ def skip(f, free):
     if free :
         f.read(free)
 
-def memrev(arr):
-    l = len(arr)
-    new_arr = bytearray(l)
-    for i in range(l):
-        new_arr[-i-1] = arr[i]
-    return str(new_arr)
-
-def ntohl(f) :
-    val = memrev(f.read(4))
-    return struct.unpack('I', val)[0]
-
-def ntohu64(f) :
-    val = memrev(f.read(8))
-    return struct.unpack('Q', val)[0]
-
 def to_datetime(usecs_since_epoch):
     seconds_since_epoch = usecs_since_epoch // 1000000
     if seconds_since_epoch > 221925052800 :
@@ -877,7 +862,7 @@ def read_signed_int(f) :
 def read_unsigned_int(f) :
     return struct.unpack('I', f.read(4))[0]
 
-def read_big_endian_unsigned_int(f):
+def read_unsigned_int_be(f):
     return struct.unpack('>I', f.read(4))[0]
 
 def read_24bit_signed_number(f):
@@ -891,7 +876,10 @@ def read_signed_long(f) :
 def read_unsigned_long(f) :
     return struct.unpack('Q', f.read(8))[0]
     
-def read_binary_double(f) :
+def read_unsigned_long_be(f) :
+    return struct.unpack('>Q', f.read(8))[0]
+
+def read_double(f) :
     return struct.unpack('d', f.read(8))[0]
 
 def string_as_hexcode(string) :
