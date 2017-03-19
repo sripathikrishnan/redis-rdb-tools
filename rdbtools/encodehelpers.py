@@ -3,7 +3,7 @@ import base64
 import codecs
 import sys
 
-from .compat import isinteger
+from .compat import isnumber
 
 STRING_ESCAPE_RAW = 'raw'
 STRING_ESCAPE_PRINT = 'print'
@@ -14,14 +14,14 @@ ESCAPE_CHOICES = [STRING_ESCAPE_RAW, STRING_ESCAPE_PRINT, STRING_ESCAPE_UTF8, ST
 if sys.version_info < (3,):
     bval = ord
 
-    def int2unistr(i): return codecs.decode(str(i), 'ascii')
-    int2bytes = str
+    def num2unistr(i): return codecs.decode(str(i), 'ascii')
+    num2bytes = str
 else:
     def bval(x): return x
 
-    int2unistr = str
+    num2unistr = str
 
-    def int2bytes(i): return codecs.encode(str(i), 'ascii')
+    def num2bytes(i): return codecs.encode(str(i), 'ascii')
 
 ASCII_ESCAPE_LOOKUP = [u'\\x00', u'\\x01', u'\\x02', u'\\x03', u'\\x04', u'\\x05', u'\\x06', u'\\x07', u'\\x08',
                        u'\\x09', u'\\x0A', u'\\x0B', u'\\x0C', u'\\x0D', u'\\x0E', u'\\x0F', u'\\x10', u'\\x11',
@@ -101,11 +101,11 @@ def bytes_to_unicode(byte_data, escape, skip_printable=False):
     :param skip_printable: If True, don't escape byte_data with all 'printable ASCII' bytes. Defaults to False.
     :return: New unicode string, escaped with the specified method if needed.
     """
-    if isinteger(byte_data):
+    if isnumber(byte_data):
         if skip_printable:
-            return int2unistr(byte_data)
+            return num2unistr(byte_data)
         else:
-            byte_data = int2bytes(byte_data)
+            byte_data = num2bytes(byte_data)
     else:
         assert (isinstance(byte_data, type(b'')))
         if skip_printable and all(0x20 <= bval(ch) <= 0x7E for ch in byte_data):
@@ -132,11 +132,11 @@ def apply_escape_bytes(byte_data, escape, skip_printable=False):
     :return: new bytes object with the escaped bytes or byte_data itself on some no-op cases.
     """
 
-    if isinteger(byte_data):
+    if isnumber(byte_data):
         if skip_printable:
-            return int2bytes(byte_data)
+            return num2bytes(byte_data)
         else:
-            byte_data = int2bytes(byte_data)
+            byte_data = num2bytes(byte_data)
     else:
         assert (isinstance(byte_data, type(b'')))
         if skip_printable and all(0x20 <= bval(ch) <= 0x7E for ch in byte_data):

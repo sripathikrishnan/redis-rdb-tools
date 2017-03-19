@@ -1,3 +1,4 @@
+import glob
 import os
 import unittest
 import random
@@ -66,6 +67,22 @@ class CallbackTester(unittest.TestCase):
     def test_base64_escape(self):
         """Test using STRING_ESCAPE_BASE64 with varied key encodings against expected output."""
         self.escape_test_helper('STRING_ESCAPE_BASE64')
+
+    def test_all_dumps(self):
+        """Run callback with all test dumps intercepting incidental crashes."""
+        if self._callback_class is None:
+            return  # Handle unittest discovery attempt to test with this "abstract" class.
+
+        for dump_name in glob.glob(os.path.join(os.path.dirname(__file__), TEST_DUMPS_DIR, '*.rdb')):
+            callback = self._callback_class(out=self._out)
+            parser = RdbParser(callback)
+            try:
+                parser.parse(dump_name)
+            except Exception as err:
+                raise self.failureException("%s on %s - %s: %s" % (
+                    self._callback_class.__name__, os.path.basename(dump_name), type(err).__name__, str(err)))
+            self._out.seek(0)
+            self._out.truncate()
 
 
 class ProtocolTestCase(CallbackTester):

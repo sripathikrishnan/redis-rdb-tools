@@ -2,7 +2,6 @@ import calendar
 import codecs
 import json
 
-from rdbtools.compat import isinteger
 from rdbtools.parser import RdbCallback
 from rdbtools import encodehelpers
 
@@ -240,7 +239,7 @@ class DiffCallback(RdbCallback):
         self._dbnum = 0
 
     def dbstr(self):
-        return b'db=' + encodehelpers.int2bytes(self._dbnum) + b' '
+        return b'db=' + encodehelpers.num2bytes(self._dbnum) + b' '
     def start_rdb(self):
         pass
     
@@ -282,7 +281,7 @@ class DiffCallback(RdbCallback):
         self._index = 0
             
     def rpush(self, key, value) :
-        istr = encodehelpers.int2bytes(self._index)
+        istr = encodehelpers.num2bytes(self._index)
         self._out.write(self.dbstr() + self.encode_key(key) + b'[' + istr + b'] -> ' + self.encode_value(value))
         self.newline()
         self._index = self._index + 1

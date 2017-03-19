@@ -10,11 +10,11 @@ except NameError:
 
 try:
     long
-    def isinteger(n):
-        return isinstance(n, int) or isinstance(n, long)
+    def isnumber(n):
+        return isinstance(n, int) or isinstance(n, long) or isinstance(n, float)
 except NameError:
-    def isinteger(n):
-        return isinstance(n, int)
+    def isnumber(n):
+        return isinstance(n, int) or isinstance(n, float)
 
 if sys.version_info < (3,):
     def str2regexp(pattern):
