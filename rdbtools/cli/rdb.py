@@ -13,7 +13,7 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
 
     parser = OptionParser(usage=usage)
     parser.add_option("-c", "--command", dest="command",
-                  help="Command to execute. Valid commands are json, diff, justkeys, justkeyvals and protocol", metavar="FILE")
+                  help="Command to execute. Valid commands are json, diff, justkeys, justkeyvals, memory and protocol", metavar="FILE")
     parser.add_option("-f", "--file", dest="output",
                   help="Output file", metavar="FILE")
     parser.add_option("-n", "--db", dest="dbs", action="append",
