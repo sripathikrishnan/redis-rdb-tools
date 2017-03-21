@@ -5,6 +5,8 @@ from string import Template
 from optparse import OptionParser
 from rdbtools import RdbParser, MemoryCallback, PrintAllKeys, StatsAggregator
 
+TEMPLATES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir, 'templates'))
+
 def main(): 
     usage = """usage: %prog [options] /path/to/dump.rdb
 
@@ -24,22 +26,23 @@ Example 2 : %prog /var/redis/6379/dump.rdb"""
         parser.error("Redis RDB file not specified")
     dump_file = args[0]
     
-    if not options.output:
-        output = "redis_memory_report.html"
-    else:
-        output = options.output
-
     stats = StatsAggregator()
     callback = MemoryCallback(stats, 64)
     parser = RdbParser(callback)
     parser.parse(dump_file)
     stats_as_json = stats.get_json()
-    
-    t = open(os.path.join(os.path.dirname(__file__),"report.html.template")).read()
-    report_template = Template(t)
+
+    with open(os.path.join(TEMPLATES_DIR, "report.html.template"), 'r') as t:
+        report_template = Template(t.read())
+
     html = report_template.substitute(REPORT_JSON = stats_as_json)
-    print(html)
-    
+
+    if options.output:
+        with open(options.output, 'w') as f:
+            f.write(html)
+    else:
+        print(html)
+
 if __name__ == '__main__':
     main()
 
