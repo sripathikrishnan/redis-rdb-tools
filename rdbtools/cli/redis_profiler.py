@@ -5,6 +5,8 @@ from string import Template
 from optparse import OptionParser
 from rdbtools import RdbParser, MemoryCallback, PrintAllKeys, StatsAggregator
 
+TEMPLATES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir, 'templates'))
+
 def main(): 
     usage = """usage: %prog [options] /path/to/dump.rdb
 
@@ -34,12 +36,15 @@ Example 2 : %prog /var/redis/6379/dump.rdb"""
     parser = RdbParser(callback)
     parser.parse(dump_file)
     stats_as_json = stats.get_json()
-    
-    t = open(os.path.join(os.path.dirname(__file__),"report.html.template")).read()
-    report_template = Template(t)
+
+    with open(os.path.join(TEMPLATES_DIR, "report.html.template"), 'r') as t:
+        report_template = Template(t.read())
+
     html = report_template.substitute(REPORT_JSON = stats_as_json)
-    print(html)
-    
+
+    with open(output, 'w') as f:
+        f.write(html)
+
 if __name__ == '__main__':
     main()
 
