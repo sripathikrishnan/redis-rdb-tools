@@ -26,11 +26,6 @@ Example 2 : %prog /var/redis/6379/dump.rdb"""
         parser.error("Redis RDB file not specified")
     dump_file = args[0]
     
-    if not options.output:
-        output = "redis_memory_report.html"
-    else:
-        output = options.output
-
     stats = StatsAggregator()
     callback = MemoryCallback(stats, 64)
     parser = RdbParser(callback)
@@ -42,8 +37,11 @@ Example 2 : %prog /var/redis/6379/dump.rdb"""
 
     html = report_template.substitute(REPORT_JSON = stats_as_json)
 
-    with open(output, 'w') as f:
-        f.write(html)
+    if options.output:
+        with open(options.output, 'w') as f:
+            f.write(html)
+    else:
+        print(html)
 
 if __name__ == '__main__':
     main()
