@@ -1,3 +1,10 @@
+* 0.1.10
+    * fix endianess parsing exception in python 3
+    * Fix bytes escape functions to handle floats
+    * fix to cli help message
+    * fixes to redis-profiler memory report utility
+    * test suite improvements
+
 * 0.1.9
     * python 3 support
     * rdb v8 (redis 4.0) support
