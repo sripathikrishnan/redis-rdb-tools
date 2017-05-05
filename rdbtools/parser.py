@@ -547,8 +547,8 @@ class RdbParser(object):
         elif enc_type == REDIS_RDB_TYPE_ZSET or enc_type == REDIS_RDB_TYPE_ZSET_2 :
             length = self.read_length(f)
             for x in range(length):
-                skip_string(f)
-                skip_binary_double(f) if enc_type == REDIS_RDB_TYPE_ZSET_2 else skip_float(f)
+                self.skip_string(f)
+                self.skip_binary_double(f) if enc_type == REDIS_RDB_TYPE_ZSET_2 else self.skip_float(f)
         elif enc_type == REDIS_RDB_TYPE_HASH :
             skip_strings = self.read_length(f) * 2
         elif enc_type == REDIS_RDB_TYPE_HASH_ZIPMAP :
