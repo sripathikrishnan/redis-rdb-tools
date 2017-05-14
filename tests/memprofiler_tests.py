@@ -39,7 +39,7 @@ class PrintAllKeysTestCase(unittest.TestCase):
         printer.next_record(MemoryRecord(0, "string", "First,Second", 104, "string", 8, 8))
         printer.next_record(MemoryRecord(0, "string", 'json:{"key": "value"}', 104, "string", 8, 8))
 
-        expected_csv = """database,type,key,size_in_bytes,encoding,num_elements,len_largest_element
+        expected_csv = b"""database,type,key,size_in_bytes,encoding,num_elements,len_largest_element
 0,string,"First,Second",104,string,8,8
 0,string,"json:{""key"": ""value""}",104,string,8,8
 """

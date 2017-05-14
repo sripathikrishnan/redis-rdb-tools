@@ -1,5 +1,5 @@
 import codecs
-import csv
+import csv,io,sys
 from collections import namedtuple
 import random
 import bisect
@@ -82,7 +82,12 @@ class PrintAllKeys(object):
     def __init__(self, out, bytes, largest):
         self._bytes = bytes
         self._largest = largest
-        self._csv = csv.writer(out, dialect='excel', lineterminator='\n')
+        if sys.version_info < (3,):
+            self._out = out
+        else:
+            #python3 csv expects a text stream
+            self._out = io.TextIOWrapper(out, encoding='utf8',newline='', write_through=True)
+        self._csv = csv.writer(self._out, dialect='excel', lineterminator='\n')
         self._csv.writerow([ "database", "type", "key", "size_in_bytes",
             "encoding", "num_elements", "len_largest_element"])
 
