@@ -68,11 +68,9 @@ Each key value pair has 4 parts -
 
 h4. Key Expiry Timestamp
 
-This section starts with a one byte flag. A value of @FD@ indicates expiry is specified in seconds. A value of @FC@ indicates expiry in specified in millseconds.
+This section starts with a one byte flag. A value of @FD@ indicates that the time of expiry is specified in seconds. A value of @FC@ indicates expiry in specified in millseconds.
 
-If time is specified in ms, the next 8 bytes represent the unix time  This number is a unix time stamp in either seconds or milliseconds precision, and represents the expiry of this key.
-
-See the section "Redis Length Encoding" on how this number is encoded.
+The next 4 bytes (or 8 bytes in case of @FC@) represents the timestamp at expiry. This is a unix timestamp and is in little endian format. 
 
 During the import process, keys that have expired must be discarded.
 
