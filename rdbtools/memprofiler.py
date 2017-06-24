@@ -1,4 +1,5 @@
 import codecs
+import csv,io,sys
 from collections import namedtuple
 import random
 import bisect
@@ -81,10 +82,14 @@ class PrintAllKeys(object):
     def __init__(self, out, bytes, largest):
         self._bytes = bytes
         self._largest = largest
-        self._out = out
-        headers = "%s,%s,%s,%s,%s,%s,%s\n" % (
-            "database", "type", "key", "size_in_bytes", "encoding", "num_elements", "len_largest_element")
-        self._out.write(codecs.encode(headers, 'latin-1'))
+        if sys.version_info < (3,):
+            self._out = out
+        else:
+            #python3 csv expects a text stream
+            self._out = io.TextIOWrapper(out, encoding='utf8',newline='', write_through=True)
+        self._csv = csv.writer(self._out, dialect='excel', lineterminator='\n')
+        self._csv.writerow([ "database", "type", "key", "size_in_bytes",
+            "encoding", "num_elements", "len_largest_element"])
 
         if self._largest is not None:
             self._heap = []
@@ -97,7 +102,9 @@ class PrintAllKeys(object):
                 rec_str = "%d,%s,%s,%d,%s,%d,%d\n" % (
                     record.database, record.type, record.key, record.bytes, record.encoding, record.size,
                     record.len_largest_element)
-                self._out.write(codecs.encode(rec_str, 'latin-1'))
+                self._csv.writerow([
+                    record.database, record.type, record.key, record.bytes, record.encoding, record.size,
+                    record.len_largest_element])
         else:
             heappush(self._heap, (record.bytes, record))
 
