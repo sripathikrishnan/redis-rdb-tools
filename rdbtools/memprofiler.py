@@ -145,7 +145,7 @@ class MemoryCallback(RdbCallback):
             self._pointer_size = 4
             self._long_size = 4
             self._architecture = 32
-        
+
     def emit_record(self, record_type, key, byte_count, encoding, size, largest_el):
         if key is not None:
             key = bytes_to_unicode(key, self._escape, skip_printable=True)
@@ -298,7 +298,19 @@ class MemoryCallback(RdbCallback):
         self.emit_record("list", key, self._current_size, self._current_encoding, self._current_length,
                          self._len_largest_element)
         self.end_key()
-    
+
+    def start_module(self, key, module_id, expiry):
+        self._current_encoding = module_id
+        self._current_size = self.top_level_object_overhead(key, expiry)
+        self._current_size += 8 + 1  # add the module id length and EOF byte
+
+        return False  # don't build the full key buffer
+
+    def end_module(self, key, buffer_size, buffer=None):
+        size = self._current_size + buffer_size
+        self.emit_record("module", key, size, self._current_encoding, 1, size)
+        self.end_key()
+
     def start_sorted_set(self, key, length, expiry, info):
         self._current_length = length
         self._current_encoding = info['encoding']
@@ -478,6 +490,7 @@ class MemoryCallback(RdbCallback):
             return ZSKIPLIST_MAXLEVEL
 
 MAXINT = 2**63 - 1
+
 
 def element_length(element):
     if isinstance(element, int):
