@@ -1,11 +1,11 @@
 import struct
 import io
-import sys
 import datetime
 import re
 
 from rdbtools.encodehelpers import STRING_ESCAPE_RAW, apply_escape_bytes, bval
 from .compat import range, str2regexp
+from .iowrapper import IOWrapper
 
 try:
     try:
@@ -41,6 +41,7 @@ REDIS_RDB_TYPE_ZSET = 3
 REDIS_RDB_TYPE_HASH = 4
 REDIS_RDB_TYPE_ZSET_2 = 5  # ZSET version 2 with doubles stored in binary.
 REDIS_RDB_TYPE_MODULE = 6
+REDIS_RDB_TYPE_MODULE_2 = 7
 REDIS_RDB_TYPE_HASH_ZIPMAP = 9
 REDIS_RDB_TYPE_LIST_ZIPLIST = 10
 REDIS_RDB_TYPE_SET_INTSET = 11
@@ -53,8 +54,15 @@ REDIS_RDB_ENC_INT16 = 1
 REDIS_RDB_ENC_INT32 = 2
 REDIS_RDB_ENC_LZF = 3
 
+REDIS_RDB_MODULE_OPCODE_EOF = 0   # End of module value.
+REDIS_RDB_MODULE_OPCODE_SINT = 1
+REDIS_RDB_MODULE_OPCODE_UINT = 2
+REDIS_RDB_MODULE_OPCODE_FLOAT = 3
+REDIS_RDB_MODULE_OPCODE_DOUBLE = 4
+REDIS_RDB_MODULE_OPCODE_STRING = 5
+
 DATA_TYPE_MAPPING = {
-    0 : "string", 1 : "list", 2 : "set", 3 : "sortedset", 4 : "hash", 5 : "sortedset", 6 : "module",
+    0 : "string", 1 : "list", 2 : "set", 3 : "sortedset", 4 : "hash", 5 : "sortedset", 6 : "module", 7: "module",
     9 : "hash", 10 : "list", 11 : "set", 12 : "sortedset", 13 : "hash", 14 : "list"}
 
 class RdbCallback(object):
@@ -106,7 +114,23 @@ class RdbCallback(object):
         
         Typically, callbacks store the current database number in a class variable
         
-        """     
+        """
+        pass
+
+    def start_module(self, key, module_name, expiry):
+        """
+        Called to indicate start of a module key
+        :param key: string
+        :param module_name: string
+        :param expiry:
+        :return: boolean to indicate whatever to record the full buffer or not
+        """
+        return False
+
+    def handle_module_data(self, key, opcode, data):
+        pass
+
+    def end_module(self, key, buffer_size, buffer=None):
         pass
 
     def db_size(self, db_size, expires_size):
@@ -366,14 +390,14 @@ class RdbParser(object):
                     self._callback.db_size(db_size, expire_size)
                     continue
 
-                if data_type == REDIS_RDB_OPCODE_EOF :
+                if data_type == REDIS_RDB_OPCODE_EOF:
                     self._callback.end_database(db_number)
                     self._callback.end_rdb()
                     if self._rdb_version >= 5:
                         f.read(8)
                     break
 
-                if self.matches_filter(db_number) :
+                if self.matches_filter(db_number):
                     self._key = self.read_string(f)
                     if self.matches_filter(db_number, self._key, data_type):
                         self.read_object(f, data_type)
@@ -382,20 +406,20 @@ class RdbParser(object):
                 else :
                     self.skip_key_and_object(f, data_type)
 
-    def read_length_with_encoding(self, f) :
+    def read_length_with_encoding(self, f):
         length = 0
         is_encoded = False
         bytes = []
         bytes.append(read_unsigned_char(f))
         enc_type = (bytes[0] & 0xC0) >> 6
-        if enc_type == REDIS_RDB_ENCVAL :
+        if enc_type == REDIS_RDB_ENCVAL:
             is_encoded = True
             length = bytes[0] & 0x3F
-        elif enc_type == REDIS_RDB_6BITLEN :
+        elif enc_type == REDIS_RDB_6BITLEN:
             length = bytes[0] & 0x3F
-        elif enc_type == REDIS_RDB_14BITLEN :
+        elif enc_type == REDIS_RDB_14BITLEN:
             bytes.append(read_unsigned_char(f))
-            length = ((bytes[0]&0x3F)<<8)|bytes[1]
+            length = ((bytes[0] & 0x3F) << 8) | bytes[1]
         elif bytes[0] == REDIS_RDB_32BITLEN:
             length = read_unsigned_int_be(f)
         elif bytes[0] == REDIS_RDB_64BITLEN:
@@ -460,47 +484,49 @@ class RdbParser(object):
                 val = self.read_string(f)
                 self._callback.rpush(self._key, val)
             self._callback.end_list(self._key, info={'encoding':'linkedlist' })
-        elif enc_type == REDIS_RDB_TYPE_SET :
+        elif enc_type == REDIS_RDB_TYPE_SET:
             # A redis list is just a sequence of strings
             # We successively read strings from the stream and create a set from it
             # Note that the order of strings is non-deterministic
             length = self.read_length(f)
             self._callback.start_set(self._key, length, self._expiry, info={'encoding':'hashtable'})
-            for count in range(0, length) :
+            for count in range(0, length):
                 val = self.read_string(f)
                 self._callback.sadd(self._key, val)
             self._callback.end_set(self._key)
         elif enc_type == REDIS_RDB_TYPE_ZSET or enc_type == REDIS_RDB_TYPE_ZSET_2 :
             length = self.read_length(f)
             self._callback.start_sorted_set(self._key, length, self._expiry, info={'encoding':'skiplist'})
-            for count in range(0, length) :
+            for count in range(0, length):
                 val = self.read_string(f)
                 score = read_double(f) if enc_type == REDIS_RDB_TYPE_ZSET_2 else self.read_float(f)
                 self._callback.zadd(self._key, score, val)
             self._callback.end_sorted_set(self._key)
-        elif enc_type == REDIS_RDB_TYPE_HASH :
+        elif enc_type == REDIS_RDB_TYPE_HASH:
             length = self.read_length(f)
             self._callback.start_hash(self._key, length, self._expiry, info={'encoding':'hashtable'})
-            for count in range(0, length) :
+            for count in range(0, length):
                 field = self.read_string(f)
                 value = self.read_string(f)
                 self._callback.hset(self._key, field, value)
             self._callback.end_hash(self._key)
-        elif enc_type == REDIS_RDB_TYPE_HASH_ZIPMAP :
+        elif enc_type == REDIS_RDB_TYPE_HASH_ZIPMAP:
             self.read_zipmap(f)
-        elif enc_type == REDIS_RDB_TYPE_LIST_ZIPLIST :
+        elif enc_type == REDIS_RDB_TYPE_LIST_ZIPLIST:
             self.read_ziplist(f)
-        elif enc_type == REDIS_RDB_TYPE_SET_INTSET :
+        elif enc_type == REDIS_RDB_TYPE_SET_INTSET:
             self.read_intset(f)
-        elif enc_type == REDIS_RDB_TYPE_ZSET_ZIPLIST :
+        elif enc_type == REDIS_RDB_TYPE_ZSET_ZIPLIST:
             self.read_zset_from_ziplist(f)
-        elif enc_type == REDIS_RDB_TYPE_HASH_ZIPLIST :
+        elif enc_type == REDIS_RDB_TYPE_HASH_ZIPLIST:
             self.read_hash_from_ziplist(f)
         elif enc_type == REDIS_RDB_TYPE_LIST_QUICKLIST:
             self.read_list_from_quicklist(f)
-        elif enc_type == REDIS_RDB_TYPE_MODULE :
-            raise Exception('read_object', 'Unable to read Redis Modules RDB objects (key %s)' % (enc_type, self._key))
-        else :
+        elif enc_type == REDIS_RDB_TYPE_MODULE:
+            raise Exception('read_object', 'Unable to read Redis Modules RDB objects (key %s)' % self._key)
+        elif enc_type == REDIS_RDB_TYPE_MODULE_2:
+            self.read_module(f)
+        else:
             raise Exception('read_object', 'Invalid object type %d for key %s' % (enc_type, self._key))
 
     def skip_key_and_object(self, f, data_type):
@@ -564,8 +590,10 @@ class RdbParser(object):
         elif enc_type == REDIS_RDB_TYPE_LIST_QUICKLIST:
             skip_strings = self.read_length(f)
         elif enc_type == REDIS_RDB_TYPE_MODULE:
-            raise Exception('skip_object', 'Unable to skip Redis Modules RDB objects (key %s)' % (enc_type, self._key))
-        else :
+            raise Exception('skip_object', 'Unable to skip Redis Modules RDB objects (key %s)' % self._key)
+        elif enc_type == REDIS_RDB_TYPE_MODULE_2:
+            self.read_module(f)
+        else:
             raise Exception('skip_object', 'Invalid object type %d for key %s' % (enc_type, self._key))
         for x in range(0, skip_strings):
             self.skip_string(f)
@@ -727,6 +755,56 @@ class RdbParser(object):
             return read_unsigned_int(f)
         else:
             return None
+
+    def read_module(self, f):
+        # this method is based on the actual implementation in redis (src/rdb.c:rdbLoadObject)
+        iowrapper = IOWrapper(f)
+        iowrapper.start_recording_size()
+        iowrapper.start_recording()
+        length, encoding = self.read_length_with_encoding(iowrapper)
+        record_buffer = self._callback.start_module(self._key, self._decode_module_id(length), self._expiry)
+
+        if not record_buffer:
+            iowrapper.stop_recording()
+
+        opcode = self.read_length(iowrapper)
+        while opcode != REDIS_RDB_MODULE_OPCODE_EOF:
+            if opcode == REDIS_RDB_MODULE_OPCODE_SINT or opcode == REDIS_RDB_MODULE_OPCODE_UINT:
+                data = self.read_length(iowrapper)
+            elif opcode == REDIS_RDB_MODULE_OPCODE_FLOAT:
+                data = self.read_float(iowrapper)
+            elif opcode == REDIS_RDB_MODULE_OPCODE_DOUBLE:
+                data = read_double(iowrapper)
+            elif opcode == REDIS_RDB_MODULE_OPCODE_STRING:
+                data = self.read_string(iowrapper)
+            else:
+                raise Exception("Unknown module opcode %s" % opcode)
+            self._callback.handle_module_data(self._key, opcode, data)
+            # read the next item in the module data type
+            opcode = self.read_length(iowrapper)
+
+        buffer = None
+        if record_buffer:
+            # prepand the buffer with REDIS_RDB_TYPE_MODULE_2 type
+            buffer = struct.pack('B', REDIS_RDB_TYPE_MODULE_2) + iowrapper.get_recorded_buffer()
+            iowrapper.stop_recording()
+        self._callback.end_module(self._key, buffer_size=iowrapper.get_recorded_size(), buffer=buffer)
+
+    charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
+
+    def _decode_module_id(self, module_id):
+        """
+        decode module id to string
+        based on @antirez moduleTypeNameByID function from redis/src/module.c
+        :param module_id: 64bit integer
+        :return: string
+        """
+        name = [''] * 9
+        module_id >>= 10
+        for i in reversed(range(9)):
+            name[i] = self.charset[module_id & 63]
+            module_id >>= 6
+        return ''.join(name)
 
     def verify_magic_string(self, magic_string) :
         if magic_string != b'REDIS' :
