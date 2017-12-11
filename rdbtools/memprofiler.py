@@ -1,3 +1,4 @@
+import sys
 import codecs
 from collections import namedtuple
 import random
@@ -184,7 +185,7 @@ class MemoryCallback(RdbCallback):
         self._current_encoding = info['encoding']
         size = self.top_level_object_overhead(key, expiry) + self.sizeof_string(value)
         
-        length = element_length(value)
+        length = self.element_length(value)
         self.emit_record("string", key, size, self._current_encoding, length, length)
         self.end_key()
     
@@ -202,10 +203,10 @@ class MemoryCallback(RdbCallback):
         self._current_size = size
     
     def hset(self, key, field, value):
-        if(element_length(field) > self._len_largest_element) :
-            self._len_largest_element = element_length(field)
-        if(element_length(value) > self._len_largest_element) :
-            self._len_largest_element = element_length(value)
+        if(self.element_length(field) > self._len_largest_element) :
+            self._len_largest_element = self.element_length(field)
+        if(self.element_length(value) > self._len_largest_element) :
+            self._len_largest_element = self.element_length(value)
         
         if self._current_encoding == 'hashtable':
             self._current_size += self.sizeof_string(field)
@@ -224,8 +225,8 @@ class MemoryCallback(RdbCallback):
         self.start_hash(key, cardinality, expiry, info)
 
     def sadd(self, key, member):
-        if(element_length(member) > self._len_largest_element) :
-            self._len_largest_element = element_length(member)
+        if(self.element_length(member) > self._len_largest_element) :
+            self._len_largest_element = self.element_length(member)
             
         if self._current_encoding == 'hashtable':
             self._current_size += self.sizeof_string(member)
@@ -265,8 +266,8 @@ class MemoryCallback(RdbCallback):
         self._current_length += 1
         size = self.sizeof_string(value) if type(value) != int else 4
 
-        if(element_length(value) > self._len_largest_element):
-            self._len_largest_element = element_length(value)
+        if(self.element_length(value) > self._len_largest_element):
+            self._len_largest_element = self.element_length(value)
 
         if self._current_encoding == "ziplist":
             self._list_items_zipped_size += self.ziplist_entry_overhead(value)
@@ -325,8 +326,8 @@ class MemoryCallback(RdbCallback):
         self._current_size = size
     
     def zadd(self, key, score, member):
-        if(element_length(member) > self._len_largest_element):
-            self._len_largest_element = element_length(member)
+        if(self.element_length(member) > self._len_largest_element):
+            self._len_largest_element = self.element_length(member)
         
         if self._current_encoding == 'skiplist':
             self._current_size += 8 # score (double)
@@ -489,16 +490,12 @@ class MemoryCallback(RdbCallback):
         else:
             return ZSKIPLIST_MAXLEVEL
 
-MAXINT = 2**63 - 1
-
-
-def element_length(element):
-    if isinstance(element, int):
-        if element < - MAXINT - 1 or element > MAXINT:
-            return 16
-        else:
-            return 8
-    else:
+    def element_length(self, element):
+        if isinstance(element, int):
+            return self._long_size
+        if sys.version_info < (3,):
+            if isinstance(element, long):
+                return self._long_size
         return len(element)
 
 
