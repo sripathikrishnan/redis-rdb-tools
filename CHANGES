@@ -1,3 +1,7 @@
+* 0.1.12
+    * add parser support for redis 4.0 module types
+    * fix bug in memory report for long encoding in python2.6
+
 * 0.1.11
     * fix recent bug failing to parse rdb files with sorted sets
 
