@@ -4,6 +4,11 @@ import sys
 from optparse import OptionParser
 from rdbtools import RdbParser, JSONCallback, DiffCallback, MemoryCallback, ProtocolCallback, PrintAllKeys, KeysOnlyCallback, KeyValsOnlyCallback
 from rdbtools.encodehelpers import ESCAPE_CHOICES
+from rdbtools.parser import HAS_PYTHON_LZF as PYTHON_LZF_INSTALLED
+
+def eprint(*args, **kwargs):
+    """Print a string to the stderr stream"""
+    print(*args, file=sys.stderr, **kwargs)
 
 VALID_TYPES = ("hash", "set", "string", "list", "sortedset")
 def main():
@@ -81,6 +86,14 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
             }[options.command](out_file_obj)
         except:
             raise Exception('Invalid Command %s' % options.command)
+
+        if not PYTHON_LZF_INSTALLED:
+            eprint("WARNING: python-lzf package NOT detected. " +
+                "Parsing dump file will be very slow unless you install it. " +
+                "To install, run the following command:")
+            eprint("")
+            eprint("pip install python-lzf")
+            eprint("")
 
         parser = RdbParser(callback, filters=filters)
         parser.parse(dump_file)
