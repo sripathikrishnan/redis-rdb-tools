@@ -10,3 +10,6 @@ tests/dumps/dump_random_lists.rdb
 tests/dumps/dump_sorted_sets.rdb
 
 .idea/*
+venv2.6/
+venv2.7/
+venv3/

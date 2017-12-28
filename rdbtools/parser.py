@@ -1026,5 +1026,3 @@ class DebugCallback(RdbCallback) :
     
     def end_rdb(self):
         print(']')
-
-
