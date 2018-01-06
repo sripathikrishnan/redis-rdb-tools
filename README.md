@@ -14,11 +14,12 @@ Rdbtools is written in Python, though there are similar projects in other langua
 
 Pre-Requisites : 
 
+1. python-lzf is optional but highly recommended to speed up parsing.
 1. redis-py is optional and only needed to run test cases.
 
 To install from PyPI (recommended) :
 
-    pip install rdbtools
+    pip install rdbtools python-lzf
     
 To install from source : 
 
