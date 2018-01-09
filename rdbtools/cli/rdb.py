@@ -1,10 +1,12 @@
 #!/usr/bin/env python
+from __future__ import print_function
 import os
 import sys
 from optparse import OptionParser
 from rdbtools import RdbParser, JSONCallback, DiffCallback, MemoryCallback, ProtocolCallback, PrintAllKeys, KeysOnlyCallback, KeyValsOnlyCallback
 from rdbtools.encodehelpers import ESCAPE_CHOICES
 from rdbtools.parser import HAS_PYTHON_LZF as PYTHON_LZF_INSTALLED
+
 
 def eprint(*args, **kwargs):
     """Print a string to the stderr stream"""
