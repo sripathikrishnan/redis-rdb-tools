@@ -304,6 +304,7 @@ class MemoryCallback(RdbCallback):
         self.end_key()
 
     def start_module(self, key, module_id, expiry):
+        self._key_expiry = expiry
         self._current_encoding = module_id
         self._current_size = self.top_level_object_overhead(key, expiry)
         self._current_size += 8 + 1  # add the module id length and EOF byte
@@ -312,7 +313,7 @@ class MemoryCallback(RdbCallback):
 
     def end_module(self, key, buffer_size, buffer=None):
         size = self._current_size + buffer_size
-        self.emit_record("module", key, size, self._current_encoding, 1, size, None)
+        self.emit_record("module", key, size, self._current_encoding, 1, size, self._key_expiry)
         self.end_key()
 
     def start_sorted_set(self, key, length, expiry, info):

@@ -18,6 +18,10 @@ CSV_WITHOUT_EXPIRY = """database,type,key,size_in_bytes,encoding,num_elements,le
 0,list,ziplist_compresses_easily,301,quicklist,6,36,
 """
 
+CSV_WITH_MODULE = """database,type,key,size_in_bytes,encoding,num_elements,len_largest_element,expiry
+0,string,simplekey,72,string,7,7,
+0,module,foo,101,ReJSON-RL,1,101,
+"""
 
 class Stats(object):
     def __init__(self):
@@ -54,6 +58,10 @@ class MemoryCallbackTestCase(unittest.TestCase):
     def test_csv_without_expiry(self):
         csv = get_csv('ziplist_that_compresses_easily.rdb')
         self.assertEquals(csv, CSV_WITHOUT_EXPIRY)
+
+    def test_csv_with_module(self):
+        csv = get_csv('redis_40_with_module.rdb')
+        self.assertEquals(csv, CSV_WITH_MODULE)
 
     def test_expiry(self):
         stats = get_stats('keys_with_expiry.rdb')
