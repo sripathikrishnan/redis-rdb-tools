@@ -2,7 +2,7 @@ import struct
 import io
 import datetime
 import re
-
+import os
 from rdbtools.encodehelpers import STRING_ESCAPE_RAW, apply_escape_bytes, bval
 from .compat import range, str2regexp
 from .iowrapper import IOWrapper
@@ -341,13 +341,21 @@ class RdbParser(object):
         self._expiry = None
         self.init_filter(filters)
         self._rdb_version = 0
+        self._fd = None
 
     def parse(self, filename):
         """
         Parse a redis rdb dump file, and call methods in the 
         callback object during the parsing operation.
         """
-        self.parse_fd(open(filename, "rb"))
+        self._fd = open(filename, 'rb')
+        self.parse_fd(self._fd )
+
+    def current_offset(self):
+        return self._fd.tell() if self._fd is not None else None
+
+    def file_size(self):
+        return os.fstat(self._fd.fileno()).st_size if self._fd is not None else None
 
     def parse_fd(self, fd):
         with fd as f:
