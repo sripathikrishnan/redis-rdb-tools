@@ -89,3 +89,12 @@ class MemoryCallbackTestCase(unittest.TestCase):
                                        bytes=101, encoding='ReJSON-RL', size=1,
                                        len_largest_element=101, expiry=None)
         self.assertEquals(stats['foo'], expected_record)
+
+    def test_rdb_with_stream(self):
+        stats = get_stats('redis_50_with_streams.rdb')
+
+        self.assertTrue('mystream' in stats)
+        expected_record = MemoryRecord(database=0, type='stream', key='mystream',
+                                       bytes=1976, encoding='listpack', size=1,
+                                       len_largest_element=184, expiry=None)
+        self.assertEquals(stats['mystream'], expected_record)

@@ -64,7 +64,8 @@ class JSONCallback(RdbCallback):
     def set(self, key, value, expiry, info):
         self._start_key(key, 0)
         self._out.write(self.encode_key(key) + b':' + self.encode_value(value))
-    
+        self._end_key(key)
+
     def start_hash(self, key, length, expiry, info):
         self._start_key(key, length)
         self._out.write(self.encode_key(key) + b':{')
@@ -113,7 +114,24 @@ class JSONCallback(RdbCallback):
     def end_sorted_set(self, key):
         self._end_key(key)
         self._out.write(b'}')
-        
+
+    def start_stream(self, key, listpacks_count, expiry, info):
+        self._start_key(key, 0)
+        self._out.write(self.encode_key(key) + b':{')
+
+    def end_stream(self, key, items, last_entry_id, cgroups):
+        self._end_key(key)
+        self._out.write(b'}')
+
+    def start_module(self, key, module_name, expiry, info):
+        self._start_key(key, 0)
+        self._out.write(self.encode_key(key) + b':{')
+        return False
+
+    def end_module(self, key, buffer_size, buffer=None):
+        self._end_key(key)
+        self._out.write(b'}')
+
 
 class KeysOnlyCallback(RdbCallback):
     def __init__(self, out, string_escape=None):
@@ -150,6 +168,12 @@ class KeysOnlyCallback(RdbCallback):
     def zadd(self, key, score, member):
         self._keyout(key)
         
+    def start_stream(self, key, listpacks_count, expiry, info):
+        self._keyout(key)
+
+    def start_module(self, key, module_name, expiry, info):
+        self._keyout(key)
+        return False
 
 class KeyValsOnlyCallback(RdbCallback):
     def __init__(self, out, string_escape=None):
@@ -226,6 +250,20 @@ class KeyValsOnlyCallback(RdbCallback):
     def end_sorted_set(self, key):
         self._end_key(key)
 
+    def start_stream(self, key, listpacks_count, expiry, info):
+        self._start_key(key, 0)
+        self._out.write(self.encode_key(key) + b' ')
+
+    def end_stream(self, key, items, last_entry_id, cgroups):
+        self._end_key(key)
+
+    def start_module(self, key, module_name, expiry, info):
+        self._start_key(key, 0)
+        self._out.write(self.encode_key(key) + b' ')
+        return False
+
+    def end_module(self, key, buffer_size, buffer=None):
+        self._end_key(key)
 
 class DiffCallback(RdbCallback):
     '''Prints the contents of RDB in a format that is unix sort friendly, 
@@ -299,6 +337,15 @@ class DiffCallback(RdbCallback):
     
     def end_sorted_set(self, key):
         pass
+
+    def end_stream(self, key, items, last_entry_id, cgroups):
+        self._out.write(self.dbstr() + self.encode_key(key) + b' -> stream-items=' + encodehelpers.num2bytes(items))
+        self.newline()
+
+    def start_module(self, key, module_name, expiry, info):
+        self._out.write(self.dbstr() + self.encode_key(key) + b' -> module-name=' + codecs.encode(module_name, 'ascii'))
+        self.newline()
+        return False
 
     def newline(self):
         self._out.write(b'\r\n')
@@ -397,6 +444,16 @@ class ProtocolCallback(RdbCallback):
 
     def end_sorted_set(self, key):
         self.post_expiry(key)
+
+    # streams and modules, not currently supported
+
+    def start_stream(self, key, listpacks_count, expiry, info):
+        # TODO send RESTORE command
+        pass
+
+    def start_module(self, key, module_name, expiry, info):
+        # TODO send RESTORE command
+        return False
 
     # Other misc commands
 

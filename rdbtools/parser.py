@@ -27,6 +27,9 @@ REDIS_RDB_32BITLEN = 0x80
 REDIS_RDB_64BITLEN = 0x81
 REDIS_RDB_ENCVAL = 3
 
+REDIS_RDB_OPCODE_MODULE_AUX = 247
+REDIS_RDB_OPCODE_IDLE = 248
+REDIS_RDB_OPCODE_FREQ = 249
 REDIS_RDB_OPCODE_AUX = 250
 REDIS_RDB_OPCODE_RESIZEDB = 251
 REDIS_RDB_OPCODE_EXPIRETIME_MS = 252
@@ -48,6 +51,7 @@ REDIS_RDB_TYPE_SET_INTSET = 11
 REDIS_RDB_TYPE_ZSET_ZIPLIST = 12
 REDIS_RDB_TYPE_HASH_ZIPLIST = 13
 REDIS_RDB_TYPE_LIST_QUICKLIST = 14
+REDIS_RDB_TYPE_STREAM_LISTPACKS = 15
 
 REDIS_RDB_ENC_INT8 = 0
 REDIS_RDB_ENC_INT16 = 1
@@ -63,7 +67,7 @@ REDIS_RDB_MODULE_OPCODE_STRING = 5
 
 DATA_TYPE_MAPPING = {
     0 : "string", 1 : "list", 2 : "set", 3 : "sortedset", 4 : "hash", 5 : "sortedset", 6 : "module", 7: "module",
-    9 : "hash", 10 : "list", 11 : "set", 12 : "sortedset", 13 : "hash", 14 : "list"}
+    9 : "hash", 10 : "list", 11 : "set", 12 : "sortedset", 13 : "hash", 14 : "list", 15 : "stream"}
 
 class RdbCallback(object):
     """
@@ -117,12 +121,13 @@ class RdbCallback(object):
         """
         pass
 
-    def start_module(self, key, module_name, expiry):
+    def start_module(self, key, module_name, expiry, info):
         """
         Called to indicate start of a module key
-        :param key: string
+        :param key: string. if key is None, this is module AUX data
         :param module_name: string
         :param expiry:
+        :param info: is a dictionary containing additional information about this object.
         :return: boolean to indicate whatever to record the full buffer or not
         """
         return False
@@ -296,7 +301,44 @@ class RdbCallback(object):
         
         """
         pass
-    
+
+    def start_stream(self, key, listpacks_count, expiry, info):
+        """Callback to handle the start of a stream
+
+        `key` is the redis key
+        `listpacks_count` is the number of listpacks in this stream.
+        `expiry` is a `datetime` object. None means the object does not expire
+        `info` is a dictionary containing additional information about this object.
+
+        After `start_stream`, the method `stream_listpack` will be called with this `key` exactly `listpacks_count` times.
+        After that, the `end_stream` method will be called.
+
+        """
+        pass
+
+    def stream_listpack(self, key, entry_id, data):
+        """
+        Callback to insert a listpack into a stream
+
+        `key` is the redis key for this stream
+        `entry_id` is binary (bigendian)
+        `data` the bytes of the listpack
+
+        """
+        pass
+
+    def end_stream(self, key, items, last_entry_id, cgroups):
+        """
+        Called when there is no more data in the stream
+
+        `key` is the redis key for the stream
+        `items` is the total number of items in the stream
+        `last_entry_id` is in "<millisecondsTime>-<sequenceNumber>" format
+        `cgroups` is an array of consumer group metadata
+
+        """
+        pass
+
     def end_database(self, db_number):
         """
         Called when the current database ends
@@ -339,6 +381,8 @@ class RdbParser(object):
         self._callback = callback
         self._key = None
         self._expiry = None
+        self._idle = None
+        self._freq = None
         self.init_filter(filters)
         self._rdb_version = 0
 
@@ -359,13 +403,23 @@ class RdbParser(object):
             db_number = 0
             while True :
                 self._expiry = None
+                self._idle = None
+                self._freq = None
                 data_type = read_unsigned_char(f)
 
                 if data_type == REDIS_RDB_OPCODE_EXPIRETIME_MS :
-                    self._expiry = to_datetime(read_unsigned_long(f) * 1000)
+                    self._expiry = read_milliseconds_time(f)
                     data_type = read_unsigned_char(f)
                 elif data_type == REDIS_RDB_OPCODE_EXPIRETIME :
                     self._expiry = to_datetime(read_unsigned_int(f) * 1000000)
+                    data_type = read_unsigned_char(f)
+
+                if data_type == REDIS_RDB_OPCODE_IDLE:
+                    self._idle = self.read_length(f)
+                    data_type = read_unsigned_char(f)
+
+                if data_type == REDIS_RDB_OPCODE_FREQ:
+                    self._freq = read_unsigned_char(f)
                     data_type = read_unsigned_char(f)
 
                 if data_type == REDIS_RDB_OPCODE_SELECTDB :
@@ -390,6 +444,10 @@ class RdbParser(object):
                     self._callback.db_size(db_size, expire_size)
                     continue
 
+                if data_type == REDIS_RDB_OPCODE_MODULE_AUX:
+                    self.read_module(f)
+                    continue
+
                 if data_type == REDIS_RDB_OPCODE_EOF:
                     self._callback.end_database(db_number)
                     self._callback.end_rdb()
@@ -403,6 +461,7 @@ class RdbParser(object):
                         self.read_object(f, data_type)
                     else:
                         self.skip_object(f, data_type)
+                    self._key = None
                 else :
                     self.skip_key_and_object(f, data_type)
 
@@ -472,14 +531,14 @@ class RdbParser(object):
     def read_object(self, f, enc_type) :
         if enc_type == REDIS_RDB_TYPE_STRING :
             val = self.read_string(f)
-            self._callback.set(self._key, val, self._expiry, info={'encoding':'string'})
+            self._callback.set(self._key, val, self._expiry, info={'encoding':'string','idle':self._idle,'freq':self._freq})
         elif enc_type == REDIS_RDB_TYPE_LIST :
             # A redis list is just a sequence of strings
             # We successively read strings from the stream and create a list from it
             # The lists are in order i.e. the first string is the head, 
             # and the last string is the tail of the list
             length = self.read_length(f)
-            self._callback.start_list(self._key, self._expiry, info={'encoding':'linkedlist' })
+            self._callback.start_list(self._key, self._expiry, info={'encoding':'linkedlist','idle':self._idle,'freq':self._freq})
             for count in range(0, length) :
                 val = self.read_string(f)
                 self._callback.rpush(self._key, val)
@@ -489,14 +548,14 @@ class RdbParser(object):
             # We successively read strings from the stream and create a set from it
             # Note that the order of strings is non-deterministic
             length = self.read_length(f)
-            self._callback.start_set(self._key, length, self._expiry, info={'encoding':'hashtable'})
+            self._callback.start_set(self._key, length, self._expiry, info={'encoding':'hashtable','idle':self._idle,'freq':self._freq})
             for count in range(0, length):
                 val = self.read_string(f)
                 self._callback.sadd(self._key, val)
             self._callback.end_set(self._key)
         elif enc_type == REDIS_RDB_TYPE_ZSET or enc_type == REDIS_RDB_TYPE_ZSET_2 :
             length = self.read_length(f)
-            self._callback.start_sorted_set(self._key, length, self._expiry, info={'encoding':'skiplist'})
+            self._callback.start_sorted_set(self._key, length, self._expiry, info={'encoding':'skiplist','idle':self._idle,'freq':self._freq})
             for count in range(0, length):
                 val = self.read_string(f)
                 score = read_double(f) if enc_type == REDIS_RDB_TYPE_ZSET_2 else self.read_float(f)
@@ -504,7 +563,7 @@ class RdbParser(object):
             self._callback.end_sorted_set(self._key)
         elif enc_type == REDIS_RDB_TYPE_HASH:
             length = self.read_length(f)
-            self._callback.start_hash(self._key, length, self._expiry, info={'encoding':'hashtable'})
+            self._callback.start_hash(self._key, length, self._expiry, info={'encoding':'hashtable','idle':self._idle,'freq':self._freq})
             for count in range(0, length):
                 field = self.read_string(f)
                 value = self.read_string(f)
@@ -526,6 +585,8 @@ class RdbParser(object):
             raise Exception('read_object', 'Unable to read Redis Modules RDB objects (key %s)' % self._key)
         elif enc_type == REDIS_RDB_TYPE_MODULE_2:
             self.read_module(f)
+        elif enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS:
+            self.read_stream(f)
         else:
             raise Exception('read_object', 'Invalid object type %d for key %s' % (enc_type, self._key))
 
@@ -592,7 +653,9 @@ class RdbParser(object):
         elif enc_type == REDIS_RDB_TYPE_MODULE:
             raise Exception('skip_object', 'Unable to skip Redis Modules RDB objects (key %s)' % self._key)
         elif enc_type == REDIS_RDB_TYPE_MODULE_2:
-            self.read_module(f)
+            self.skip_module(f)
+        elif enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS:
+            self.skip_stream(f)
         else:
             raise Exception('skip_object', 'Invalid object type %d for key %s' % (enc_type, self._key))
         for x in range(0, skip_strings):
@@ -604,7 +667,7 @@ class RdbParser(object):
         buff = BytesIO(raw_string)
         encoding = read_unsigned_int(buff)
         num_entries = read_unsigned_int(buff)
-        self._callback.start_set(self._key, num_entries, self._expiry, info={'encoding':'intset', 'sizeof_value':len(raw_string)})
+        self._callback.start_set(self._key, num_entries, self._expiry, info={'encoding':'intset', 'sizeof_value':len(raw_string),'idle':self._idle,'freq':self._freq})
         for x in range(0, num_entries) :
             if encoding == 8 :
                 entry = read_signed_long(buff)
@@ -623,7 +686,7 @@ class RdbParser(object):
         zlbytes = read_unsigned_int(buff)
         tail_offset = read_unsigned_int(buff)
         num_entries = read_unsigned_short(buff)
-        self._callback.start_list(self._key, self._expiry, info={'encoding':'ziplist', 'sizeof_value':len(raw_string)})
+        self._callback.start_list(self._key, self._expiry, info={'encoding':'ziplist', 'sizeof_value':len(raw_string),'idle':self._idle,'freq':self._freq})
         for x in range(0, num_entries) :
             val = self.read_ziplist_entry(buff)
             self._callback.rpush(self._key, val)
@@ -635,7 +698,7 @@ class RdbParser(object):
     def read_list_from_quicklist(self, f):
         count = self.read_length(f)
         total_size = 0
-        self._callback.start_list(self._key, self._expiry, info={'encoding': 'quicklist', 'zips': count})
+        self._callback.start_list(self._key, self._expiry, info={'encoding': 'quicklist', 'zips': count,'idle':self._idle,'freq':self._freq})
         for i in range(0, count):
             raw_string = self.read_string(f)
             total_size += len(raw_string)
@@ -659,7 +722,7 @@ class RdbParser(object):
         if (num_entries % 2) :
             raise Exception('read_zset_from_ziplist', "Expected even number of elements, but found %d for key %s" % (num_entries, self._key))
         num_entries = num_entries // 2
-        self._callback.start_sorted_set(self._key, num_entries, self._expiry, info={'encoding':'ziplist', 'sizeof_value':len(raw_string)})
+        self._callback.start_sorted_set(self._key, num_entries, self._expiry, info={'encoding':'ziplist', 'sizeof_value':len(raw_string),'idle':self._idle,'freq':self._freq})
         for x in range(0, num_entries) :
             member = self.read_ziplist_entry(buff)
             score = self.read_ziplist_entry(buff)
@@ -680,7 +743,7 @@ class RdbParser(object):
         if (num_entries % 2) :
             raise Exception('read_hash_from_ziplist', "Expected even number of elements, but found %d for key %s" % (num_entries, self._key))
         num_entries = num_entries // 2
-        self._callback.start_hash(self._key, num_entries, self._expiry, info={'encoding':'ziplist', 'sizeof_value':len(raw_string)})
+        self._callback.start_hash(self._key, num_entries, self._expiry, info={'encoding':'ziplist', 'sizeof_value':len(raw_string),'idle':self._idle,'freq':self._freq})
         for x in range(0, num_entries) :
             field = self.read_ziplist_entry(buff)
             value = self.read_ziplist_entry(buff)
@@ -727,7 +790,7 @@ class RdbParser(object):
         raw_string = self.read_string(f)
         buff = io.BytesIO(bytearray(raw_string))
         num_entries = read_unsigned_char(buff)
-        self._callback.start_hash(self._key, num_entries, self._expiry, info={'encoding':'zipmap', 'sizeof_value':len(raw_string)})
+        self._callback.start_hash(self._key, num_entries, self._expiry, info={'encoding':'zipmap', 'sizeof_value':len(raw_string),'idle':self._idle,'freq':self._freq})
         while True :
             next_length = self.read_zipmap_next_length(buff)
             if next_length is None :
@@ -756,13 +819,29 @@ class RdbParser(object):
         else:
             return None
 
+    def skip_module(self, f):
+        opcode = self.read_length(f)
+        while opcode != REDIS_RDB_MODULE_OPCODE_EOF:
+            if opcode == REDIS_RDB_MODULE_OPCODE_SINT or opcode == REDIS_RDB_MODULE_OPCODE_UINT:
+                self.read_length(f)
+            elif opcode == REDIS_RDB_MODULE_OPCODE_FLOAT:
+                self.skip_float(f)
+            elif opcode == REDIS_RDB_MODULE_OPCODE_DOUBLE:
+                read_double(f)
+            elif opcode == REDIS_RDB_MODULE_OPCODE_STRING:
+                self.skip_string(f)
+            else:
+                raise Exception("Unknown module opcode %s" % opcode)
+            # read the next item in the module data type
+            opcode = self.read_length(f)
+
     def read_module(self, f):
         # this method is based on the actual implementation in redis (src/rdb.c:rdbLoadObject)
         iowrapper = IOWrapper(f)
         iowrapper.start_recording_size()
         iowrapper.start_recording()
         length, encoding = self.read_length_with_encoding(iowrapper)
-        record_buffer = self._callback.start_module(self._key, self._decode_module_id(length), self._expiry)
+        record_buffer = self._callback.start_module(self._key, self._decode_module_id(length), self._expiry, info={'idle':self._idle, 'freq':self._freq})
 
         if not record_buffer:
             iowrapper.stop_recording()
@@ -790,6 +869,72 @@ class RdbParser(object):
             iowrapper.stop_recording()
         self._callback.end_module(self._key, buffer_size=iowrapper.get_recorded_size(), buffer=buffer)
 
+    def skip_stream(self, f):
+        listpacks = self.read_length(f)
+        for _lp in range(listpacks):
+            self.skip_string(f)
+            self.skip_string(f)
+        self.read_length(f)
+        self.read_length(f)
+        self.read_length(f)
+        cgroups = self.read_length(f)
+        for _cg in range(cgroups):
+            self.skip_string(f)
+            self.read_length(f)
+            self.read_length(f)
+            pending = self.read_length(f)
+            for _pel in range(pending):
+                f.read(16)
+                f.read(8)
+                self.read_length(f)
+            consumers = self.read_length(f)
+            for _c in range(consumers):
+                self.skip_string(f)
+                f.read(8)
+                pending = self.read_length(f)
+                f.read(pending*16)
+
+    def read_stream(self, f):
+        listpacks = self.read_length(f)
+        self._callback.start_stream(self._key, listpacks, self._expiry,
+                                    info={'encoding': 'listpack', 'idle': self._idle, 'freq': self._freq})
+        for _lp in range(listpacks):
+            self._callback.stream_listpack(self._key, self.read_string(f), self.read_string(f))
+        items = self.read_length(f)
+        last_entry_id = "%s-%s" % (self.read_length(f), self.read_length(f))
+        cgroups = self.read_length(f)
+        cgroups_data = []
+        for _cg in range(cgroups):
+            cgname = self.read_string(f)
+            last_cg_entry_id = "%s-%s" % (self.read_length(f), self.read_length(f))
+            pending = self.read_length(f)
+            group_pending_entries = []
+            for _pel in range(pending):
+                eid = f.read(16)
+                delivery_time = read_milliseconds_time(f)
+                delivery_count = self.read_length(f)
+                group_pending_entries.append({'id': eid,
+                                              'delivery_time': delivery_time,
+                                              'delivery_count': delivery_count})
+            consumers = self.read_length(f)
+            consumers_data = []
+            for _c in range(consumers):
+                cname = self.read_string(f)
+                seen_time = read_milliseconds_time(f)
+                pending = self.read_length(f)
+                consumer_pending_entries = []
+                for _pel in range( pending):
+                    eid = f.read(16)
+                    consumer_pending_entries.append({'id': eid})
+                consumers_data.append({'name': cname,
+                                       'seen_time': seen_time,
+                                       'pending': consumer_pending_entries})
+            cgroups_data.append({'name': cgname,
+                                 'last_entry_id': last_cg_entry_id,
+                                 'pending': group_pending_entries,
+                                 'consumers': consumers_data})
+        self._callback.end_stream(self._key, items, last_entry_id, cgroups_data)
+
     charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
 
     def _decode_module_id(self, module_id):
@@ -812,7 +957,7 @@ class RdbParser(object):
 
     def verify_version(self, version_str) :
         version = int(version_str)
-        if version < 1 or version > 8: 
+        if version < 1 or version > 9:
             raise Exception('verify_version', 'Invalid RDB version number %d' % version)
         self._rdb_version = version
 
@@ -840,14 +985,13 @@ class RdbParser(object):
         else:
             self._filters['not_keys'] = str2regexp(filters['not_keys'])
 
-        if not 'types' in filters:
-            self._filters['types'] = ('set', 'hash', 'sortedset', 'module', 'string', 'list')
-        elif isinstance(filters['types'], bytes):
-            self._filters['types'] = (filters['types'], )
-        elif isinstance(filters['types'], list):
-            self._filters['types'] = [str(x) for x in filters['types']]
-        else:
-            raise Exception('init_filter', 'invalid value for types in filter %s' %filters['types'])
+        if 'types' in filters:
+            if isinstance(filters['types'], bytes):
+                self._filters['types'] = (filters['types'], )
+            elif isinstance(filters['types'], list):
+                self._filters['types'] = [str(x) for x in filters['types']]
+            else:
+                raise Exception('init_filter', 'invalid value for types in filter %s' %filters['types'])
         
     def matches_filter(self, db_number, key=None, data_type=None):
 
@@ -865,7 +1009,7 @@ class RdbParser(object):
         if key and (not self._filters['keys'].match(key_to_match)):
             return False
 
-        if data_type is not None and (not self.get_logical_type(data_type) in self._filters['types']):
+        if data_type is not None and 'types' in self._filters and (not self.get_logical_type(data_type) in self._filters['types']):
             return False
         return True
     
@@ -954,6 +1098,9 @@ def read_signed_long(f) :
 def read_unsigned_long(f) :
     return struct.unpack('Q', f.read(8))[0]
     
+def read_milliseconds_time(f) :
+    return to_datetime(read_unsigned_long(f) * 1000)
+
 def read_unsigned_long_be(f) :
     return struct.unpack('>Q', f.read(8))[0]
 

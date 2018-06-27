@@ -4,6 +4,7 @@ import unittest
 import random
 import sys
 from io import BytesIO
+import traceback
 
 from rdbtools import RdbParser
 from rdbtools import encodehelpers
@@ -79,8 +80,8 @@ class CallbackTester(unittest.TestCase):
             try:
                 parser.parse(dump_name)
             except Exception as err:
-                raise self.failureException("%s on %s - %s: %s" % (
-                    self._callback_class.__name__, os.path.basename(dump_name), type(err).__name__, str(err)))
+                raise self.failureException("%s on %s\n%s" % (
+                    self._callback_class.__name__, os.path.basename(dump_name), traceback.format_exc()))
             self._out.seek(0)
             self._out.truncate()
 

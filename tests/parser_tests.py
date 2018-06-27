@@ -204,6 +204,16 @@ class RedisParserTestCase(unittest.TestCase):
         self.assertEquals(r.databases[0][b"key_in_zeroth_database"], b"zero")
         self.assertEquals(r.databases[2][b"key_in_second_database"], b"second")
 
+    def test_rdb_version_8_with_module(self):
+        r = load_rdb('redis_40_with_module.rdb')
+        self.assertEquals(r.databases[0][b'foo']['module_name'], 'ReJSON-RL')
+
+    def test_rdb_version_9_with_stream(self):
+        r = load_rdb('redis_50_with_streams.rdb')
+        self.assertEquals(r.lengths[0][b"mystream"], 4)
+        self.assertEquals(len(r.databases[0][b'mystream']), 1)
+
+
 def floateq(f1, f2) :
     return math.fabs(f1 - f2) < 0.00001
 
@@ -338,6 +348,41 @@ class MockRedis(RdbCallback):
         if len(self.currentdb()[key]) != self.lengths[self.dbnum][key] :
             raise Exception('Lengths mismatch on sortedset %s, expected length = %d, actual = %d'
                                  % (key, self.lengths[self.dbnum][key], len(self.currentdb()[key])))
+
+    def start_module(self, key, module_name, expiry, info):
+        if key in self.currentdb() :
+            raise Exception('start_module called with key %s that already exists' % key)
+        else :
+            self.currentdb()[key] = {'module_name': module_name}
+        if expiry :
+            self.store_expiry(key, expiry)
+        return False
+
+    def end_module(self, key, buffer_size, buffer=None):
+        if not key in self.currentdb() :
+            raise Exception('start_module not called for key = %s', key)
+        self.store_length(key, buffer_size)
+        pass
+
+    def start_stream(self, key, listpacks_count, expiry, info):
+        if key in self.currentdb() :
+            raise Exception('start_stream called with key %s that already exists' % key)
+        else :
+            self.currentdb()[key] = {}
+        if expiry :
+            self.store_expiry(key, expiry)
+        pass
+
+    def stream_listpack(self, key, entry_id, data):
+        if not key in self.currentdb() :
+            raise Exception('start_hash not called for key = %s', key)
+        self.currentdb()[key][entry_id] = data
+        pass
+
+    def end_stream(self, key, items, last_entry_id, cgroups):
+        if not key in self.currentdb() :
+            raise Exception('start_stream not called for key = %s', key)
+        self.store_length(key, items)
 
     def end_database(self, dbnum):
         if self.dbnum != dbnum :

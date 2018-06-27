@@ -124,7 +124,7 @@ class MemoryCallback(RdbCallback):
     '''Calculates the memory used if this rdb file were loaded into RAM
         The memory usage is approximate, and based on heuristics.
     '''
-    def __init__(self, stream, architecture, redis_version='3.2', string_escape=None):
+    def __init__(self, stream, architecture, redis_version='5.0', string_escape=None):
         super(MemoryCallback, self).__init__(string_escape)
         self._stream = stream
         self._dbnum = 0
@@ -303,7 +303,7 @@ class MemoryCallback(RdbCallback):
                          self._len_largest_element, self._key_expiry)
         self.end_key()
 
-    def start_module(self, key, module_id, expiry):
+    def start_module(self, key, module_id, expiry, info):
         self._key_expiry = expiry
         self._current_encoding = module_id
         self._current_size = self.top_level_object_overhead(key, expiry)
@@ -314,6 +314,49 @@ class MemoryCallback(RdbCallback):
     def end_module(self, key, buffer_size, buffer=None):
         size = self._current_size + buffer_size
         self.emit_record("module", key, size, self._current_encoding, 1, size, self._key_expiry)
+        self.end_key()
+
+    def start_stream(self, key, listpacks_count, expiry, info):
+        self._key_expiry = expiry
+        self._current_encoding = info['encoding']
+        self._current_size = self.top_level_object_overhead(key, expiry)
+        self._current_size += self.sizeof_pointer()*2 + 8 + 16  # stream struct
+        self._current_size += self.sizeof_pointer() + 8*2  # rax struct
+        self._listpacks_count = listpacks_count
+
+    def stream_listpack(self, key, entry_id, data):
+        self._current_size += self.malloc_overhead(len(data))
+        if(len(data) > self._len_largest_element):
+            self._len_largest_element = len(data)
+        pass
+
+    def sizeof_stream_radix_tree(self, num_elements):
+        # This is a very rough estimation. The only alternative to doing an estimation,
+        # is to fully build a radix tree of similar design, and count the nodes.
+        # There should be at least as many nodes as there are elements in the radix tree (possibly up to 3 times)
+        num_nodes = int(num_elements * 2.5)
+        # formula for memory estimation copied from Redis's streamRadixTreeMemoryUsage
+        return 16*num_elements + num_nodes*4 + num_nodes*30*self.sizeof_long()
+
+    def end_stream(self, key, items, last_entry_id, cgroups):
+        # Now after we have some global key+value overheads, and all listpacks sizes,
+        # we need to add some estimations for radix tree and consumer groups.
+        # The logic for the memory estimation copied from Redis's MEMORY command.
+        radix_tree_size = self.sizeof_stream_radix_tree(self._listpacks_count)
+        cgroups_size = 0
+        for cg in cgroups:
+            cgroups_size += self.sizeof_pointer() * 2 + 16  # streamCG
+            pending = len(cg['pending'])
+            cgroups_size += self.sizeof_stream_radix_tree(pending)
+            cgroups_size += pending*(self.sizeof_pointer()+8+8)  # streamNACK
+            for c in cg['consumers']:
+                cgroups_size += self.sizeof_pointer()*2 + 8  # streamConsumer
+                cgroups_size += self.sizeof_string(c['name'])
+                pending = len(c['pending'])
+                cgroups_size += self.sizeof_stream_radix_tree(pending)
+        size = self._current_size + radix_tree_size + cgroups_size
+        self._current_length = items
+        self.emit_record("stream", key, size, self._current_encoding, 1, self._len_largest_element, self._key_expiry)
         self.end_key()
 
     def start_sorted_set(self, key, length, expiry, info):
