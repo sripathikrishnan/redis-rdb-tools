@@ -403,7 +403,7 @@ class MemoryCallback(RdbCallback):
             if num < REDIS_SHARED_INTEGERS :
                 return 0
             else :
-                return 8
+                return 0  # the integer is part of the robj, no extra memory
         except ValueError:
             pass
         l = len(string)
