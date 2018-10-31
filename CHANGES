@@ -1,3 +1,9 @@
+* 0.1.13
+    * Add support for rdb v9 (redis 5.0) and memory analysis of streams
+    * Adding expiry to memory csv
+    * Warning users when python-lzf is not installed
+    * Minor fix to memory calculations of small numeric values
+
 * 0.1.12
     * add parser support for redis 4.0 module types
     * fix bug in memory report for long encoding in python2.6
