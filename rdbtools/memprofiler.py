@@ -25,9 +25,11 @@ class StatsAggregator(object):
         self.aggregates = {}
         self.scatters = {}
         self.histograms = {}
+        self.metadata = {}
 
     def next_record(self, record):
         self.add_aggregate('database_memory', record.database, record.bytes)
+        self.add_aggregate('database_memory', 'all', record.bytes)
         self.add_aggregate('type_memory', record.type, record.bytes)
         self.add_aggregate('encoding_memory', record.encoding, record.bytes)
         
@@ -47,7 +49,7 @@ class StatsAggregator(object):
             self.add_scatter('sortedset_memory_by_length', record.bytes, record.size)
         elif record.type == 'string':
             self.add_scatter('string_memory_by_length', record.bytes, record.size)
-        elif record.type == 'dict':
+        elif record.type in ['dict', 'module', 'stream']:
             pass
         else:
             raise Exception('Invalid data type %s' % record.type)
@@ -74,9 +76,12 @@ class StatsAggregator(object):
         if not heading in self.scatters:
             self.scatters[heading] = []
         self.scatters[heading].append([x, y])
+
+    def set_metadata(self, key, val):
+        self.metadata[key] = val
   
     def get_json(self):
-        return json.dumps({"aggregates":self.aggregates, "scatters":self.scatters, "histograms":self.histograms})
+        return json.dumps({"aggregates": self.aggregates, "scatters": self.scatters, "histograms": self.histograms, "metadata": self.metadata})
         
 class PrintAllKeys(object):
     def __init__(self, out, bytes, largest):
@@ -159,7 +164,6 @@ class MemoryCallback(RdbCallback):
         pass
 
     def aux_field(self, key, value):
-        #print('aux: %s %s' % (key, value))
         if key == 'used-mem':
             self._aux_used_mem = int(value)
         if key == 'redis-ver':
@@ -179,9 +183,13 @@ class MemoryCallback(RdbCallback):
             self._stream.end_database(db_number)
 
     def end_rdb(self):
-        #print('internal fragmentation: %s' % self._total_internal_frag)
         if hasattr(self._stream, 'end_rdb'):
             self._stream.end_rdb()
+        if hasattr(self._stream, 'set_metadata'):
+            self._stream.set_metadata('used_mem', self._aux_used_mem)
+            self._stream.set_metadata('redis_ver', self._aux_redis_ver)
+            self._stream.set_metadata('redis_bits', self._aux_redis_bits)
+            self._stream.set_metadata('internal_frag', self._total_internal_frag)
 
     def set(self, key, value, expiry, info):
         self._current_encoding = info['encoding']
