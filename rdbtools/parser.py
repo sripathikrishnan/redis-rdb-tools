@@ -558,7 +558,7 @@ class RdbParser(object):
             self._callback.start_sorted_set(self._key, length, self._expiry, info={'encoding':'skiplist','idle':self._idle,'freq':self._freq})
             for count in range(0, length):
                 val = self.read_string(f)
-                score = read_double(f) if enc_type == REDIS_RDB_TYPE_ZSET_2 else self.read_float(f)
+                score = read_binary_double(f) if enc_type == REDIS_RDB_TYPE_ZSET_2 else self.read_float(f)
                 self._callback.zadd(self._key, score, val)
             self._callback.end_sorted_set(self._key)
         elif enc_type == REDIS_RDB_TYPE_HASH:
@@ -825,9 +825,9 @@ class RdbParser(object):
             if opcode == REDIS_RDB_MODULE_OPCODE_SINT or opcode == REDIS_RDB_MODULE_OPCODE_UINT:
                 self.read_length(f)
             elif opcode == REDIS_RDB_MODULE_OPCODE_FLOAT:
-                self.skip_float(f)
+                read_binary_float(f)
             elif opcode == REDIS_RDB_MODULE_OPCODE_DOUBLE:
-                read_double(f)
+                read_binary_double(f)
             elif opcode == REDIS_RDB_MODULE_OPCODE_STRING:
                 self.skip_string(f)
             else:
@@ -851,9 +851,9 @@ class RdbParser(object):
             if opcode == REDIS_RDB_MODULE_OPCODE_SINT or opcode == REDIS_RDB_MODULE_OPCODE_UINT:
                 data = self.read_length(iowrapper)
             elif opcode == REDIS_RDB_MODULE_OPCODE_FLOAT:
-                data = self.read_float(iowrapper)
+                data = read_binary_float(iowrapper)
             elif opcode == REDIS_RDB_MODULE_OPCODE_DOUBLE:
-                data = read_double(iowrapper)
+                data = read_binary_double(iowrapper)
             elif opcode == REDIS_RDB_MODULE_OPCODE_STRING:
                 data = self.read_string(iowrapper)
             else:
@@ -1104,8 +1104,11 @@ def read_milliseconds_time(f) :
 def read_unsigned_long_be(f) :
     return struct.unpack('>Q', f.read(8))[0]
 
-def read_double(f) :
+def read_binary_double(f) :
     return struct.unpack('d', f.read(8))[0]
+
+def read_binary_float(f) :
+    return struct.unpack('f', f.read(4))[0]
 
 def string_as_hexcode(string) :
     for s in string :

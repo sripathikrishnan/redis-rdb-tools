@@ -15,7 +15,10 @@
         google.setOnLoadCallback(draw_charts);
         
         function draw_charts() {
-            //draw_pie_chart('database_memory', chart_data.aggregates.database_memory, 'Database Number', 'Size in Bytes', 'Memory Usage by Database')
+            document.getElementById('database_memory').innerHTML = chart_data.aggregates.database_memory['all']
+            document.getElementById('aux_used_mem').innerHTML = chart_data.metadata.used_mem
+            document.getElementById('aux_redis_ver_and_bits').innerHTML = chart_data.metadata.redis_ver + ' - ' + chart_data.metadata.redis_bits + 'bit'
+            document.getElementById('internal_frag').innerHTML = chart_data.metadata.internal_frag
             
             draw_pie_chart('type_memory', chart_data.aggregates.type_memory, 'Data Type', 'Total Size in Bytes', 'Memory Usage by Data Type')
             draw_column_chart('type_count', chart_data.aggregates.type_count, 'Data Type', 'Keys', 'Number of Keys by Data Type')
@@ -105,14 +108,26 @@
   <body>
     <h1>Redis Memory Distribution for dump.rdb</h1>
     <div class="container">
-        <!--
+        <h2>Total database computed memory:</h2>
         <div class="row">
             <div class="span6" id="database_memory">
             </div>
-            <div class="span6" id="">
+        </div>
+        <h2>Total database memory from RDB aux field:</h2>
+        <div class="row">
+            <div class="span6" id="aux_used_mem">
             </div>
         </div>
-        -->
+        <h2>Database redis version and bits:</h2>
+        <div class="row">
+            <div class="span6" id="aux_redis_ver_and_bits">
+            </div>
+        </div>
+        <h2>Total estimated internal fragmentation:</h2>
+        <div class="row">
+            <div class="span6" id="internal_frag">
+            </div>
+        </div>
         <h2>Memory Usage By Data Type and Data Encoding</h2>
         <div class="row">
             <div class="span6" id="type_memory">
