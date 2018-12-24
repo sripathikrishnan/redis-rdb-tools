@@ -1,3 +1,9 @@
+* 0.1.14
+    * fix parsing crash for rdb with module data containing floats
+    * fix memprofiler crash on python 2.x crash on long integers
+    * fix memprofiler crash on rdb with modules or streams
+    * improvements in memprofiler report to show totals and metadata
+
 * 0.1.13
     * Add support for rdb v9 (redis 5.0) and memory analysis of streams
     * Adding expiry to memory csv
