@@ -4,7 +4,30 @@ This document tracks the changes made to the dump file format over time.
 
 Redis dump file is 100% backwards compatible. An older dump file format will always work with a newer version of Redis.
 
-h2. Version 6
+h2. Version 9 - redis 5.0
+
+The following additions have been made : 
+
+ # New Streams data type
+ # The RDB can coantain LRU or LFU of the keys
+ # The RDB can contains Module AUX fields
+
+h2. Version 8 - redis 4.0
+
+The following additions have been made : 
+
+ # New Modules data types
+ # Sorted sets store binary double values instead of strings
+
+h2. Version 7 - redis 3.2
+
+The following additions have been made : 
+
+ # New QuickList encoding
+ # New AUX fields with metadata
+ # New DBSIZE opcode
+
+h2. Version 6 - redis 2.8
 
 In previous versions, ziplists used a variable length encoding scheme for integers. 
 Integers were stored in 16, 32 or 64 bits. In this version, this variable length 
@@ -25,7 +48,7 @@ To migrate to version 5 :
  # Edit the dump.rdb file, and change the rdb version in the header to `REDIS0005`
 
 
-h2. Version 5
+h2. Version 5 - redis 2.4
 
 This version introduced an 8 byte checksum (CRC-32) at the end of the file. If checksum is disabled in redis.conf,
 the last 8 bytes will be zeroes.
