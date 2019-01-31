@@ -820,6 +820,7 @@ class RdbParser(object):
             return None
 
     def skip_module(self, f):
+        self.read_length_with_encoding(f) # read module id first
         opcode = self.read_length(f)
         while opcode != REDIS_RDB_MODULE_OPCODE_EOF:
             if opcode == REDIS_RDB_MODULE_OPCODE_SINT or opcode == REDIS_RDB_MODULE_OPCODE_UINT:
