@@ -208,6 +208,10 @@ class RedisParserTestCase(unittest.TestCase):
         r = load_rdb('redis_40_with_module.rdb')
         self.assertEquals(r.databases[0][b'foo']['module_name'], 'ReJSON-RL')
 
+    def test_rdb_version_8_with_module_and_skip(self):
+        r = load_rdb('redis_40_with_module.rdb', {"keys": "bar"}) # skip foo module
+        self.assert_(b'foo' not in r.databases[0])
+
     def test_rdb_version_9_with_stream(self):
         r = load_rdb('redis_50_with_streams.rdb')
         self.assertEquals(r.lengths[0][b"mystream"], 4)
