@@ -9,8 +9,8 @@ h2. Version 9 - redis 5.0
 The following additions have been made : 
 
  # New Streams data type
- # The RDB can coantain LRU or LFU of the keys
- # The RDB can contains Module AUX fields
+ # The RDB can contain LRU or LFU of the keys
+ # The RDB can contain Module AUX fields
 
 h2. Version 8 - redis 4.0
 
