@@ -212,7 +212,7 @@ h2. Ziplist Encoding
 
 A Ziplist is a list that has been serialized to a string. In essence, the elements of the list are stored sequentially along with flags and offsets to allow efficient traversal of the list in both directions.
 
-To parse a ziplist, first a string is read from thee stream using "String Encoding". This string is the envelope of the ziplist. The contents of this string represent the ziplist.
+To parse a ziplist, first a string is read from the stream using "String Encoding". This string is the envelope of the ziplist. The contents of this string represent the ziplist.
 
 The structure of a ziplist within this string is as follows -
 @<zlbytes><zltail><zllen><entry><entry><zlend>@
@@ -272,7 +272,7 @@ Since an Intset is a binary search tree, the numbers in this set will always be 
 
 An Intset has an external interface of a Set. 
 
-To parse an Intset, first a string is read from thee stream using "String Encoding". This string is the envelope of the Intset. The contents of this string represent the Intset.
+To parse an Intset, first a string is read from the stream using "String Encoding". This string is the envelope of the Intset. The contents of this string represent the Intset.
 
 Within this string, the Intset has a very simple layout :
 @<encoding><length-of-contents><contents>@
