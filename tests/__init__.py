@@ -2,6 +2,7 @@ import unittest
 from tests.parser_tests import RedisParserTestCase
 from tests.memprofiler_tests import MemoryCallbackTestCase
 from tests.callbacks_tests import ProtocolTestCase, JsonTestCase, DiffTestCase, KeysTestCase, KeyValsTestCase
+from tests.protocol_tests import ProtocolExpireTestCase
 
 
 def all_tests():
@@ -12,7 +13,8 @@ def all_tests():
                       JsonTestCase,
                       DiffTestCase,
                       KeysTestCase,
-                      KeyValsTestCase]
+                      KeyValsTestCase,
+                      ProtocolExpireTestCase]
     for case in test_case_list:
         suite.addTest(unittest.makeSuite(case))
     return suite

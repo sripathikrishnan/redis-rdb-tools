@@ -2,7 +2,7 @@
 from __future__ import print_function
 import os
 import sys
-from optparse import OptionParser
+from argparse import ArgumentParser
 from rdbtools import RdbParser, JSONCallback, DiffCallback, MemoryCallback, ProtocolCallback, PrintAllKeys, KeysOnlyCallback, KeyValsOnlyCallback
 from rdbtools.encodehelpers import ESCAPE_CHOICES
 from rdbtools.parser import HAS_PYTHON_LZF as PYTHON_LZF_INSTALLED
@@ -14,36 +14,38 @@ def eprint(*args, **kwargs):
 
 VALID_TYPES = ("hash", "set", "string", "list", "sortedset")
 def main():
-    usage = """usage: %prog [options] /path/to/dump.rdb
+    usage = """usage: %(prog)s [options] /path/to/dump.rdb
 
-Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
+Example : %(prog)s --command json -k "user.*" /var/redis/6379/dump.rdb"""
 
-    parser = OptionParser(usage=usage)
-    parser.add_option("-c", "--command", dest="command",
-                  help="Command to execute. Valid commands are json, diff, justkeys, justkeyvals, memory and protocol", metavar="FILE")
-    parser.add_option("-f", "--file", dest="output",
+    parser = ArgumentParser(prog='rdb', usage=usage)
+    parser.add_argument("-c", "--command", dest="command", required=True,
+                  help="Command to execute. Valid commands are json, diff, justkeys, justkeyvals, memory and protocol", metavar="CMD")
+    parser.add_argument("-f", "--file", dest="output",
                   help="Output file", metavar="FILE")
-    parser.add_option("-n", "--db", dest="dbs", action="append",
+    parser.add_argument("-n", "--db", dest="dbs", action="append",
                   help="Database Number. Multiple databases can be provided. If not specified, all databases will be included.")
-    parser.add_option("-k", "--key", dest="keys", default=None,
+    parser.add_argument("-k", "--key", dest="keys", default=None,
                   help="Keys to export. This can be a regular expression")
-    parser.add_option("-o", "--not-key", dest="not_keys", default=None,
+    parser.add_argument("-o", "--not-key", dest="not_keys", default=None,
                   help="Keys Not to export. This can be a regular expression")
-    parser.add_option("-t", "--type", dest="types", action="append",
+    parser.add_argument("-t", "--type", dest="types", action="append",
                   help="""Data types to include. Possible values are string, hash, set, sortedset, list. Multiple typees can be provided. 
                     If not specified, all data types will be returned""")
-    parser.add_option("-b", "--bytes", dest="bytes", default=None,
+    parser.add_argument("-b", "--bytes", dest="bytes", default=None,
                   help="Limit memory output to keys greater to or equal to this value (in bytes)")
-    parser.add_option("-l", "--largest", dest="largest", default=None,
+    parser.add_argument("-l", "--largest", dest="largest", default=None,
                   help="Limit memory output to only the top N keys (by size)")
-    parser.add_option("-e", "--escape", dest="escape", choices=ESCAPE_CHOICES,
-                      help="Escape strings to encoding: %s (default), %s, %s, or %s." % tuple(ESCAPE_CHOICES))
+    parser.add_argument("-e", "--escape", dest="escape", choices=ESCAPE_CHOICES,
+                  help="Escape strings to encoding: %s (default), %s, %s, or %s." % tuple(ESCAPE_CHOICES))
+    expire_group = parser.add_mutually_exclusive_group(required=False)
+    expire_group.add_argument("-x", "--no-expire", dest="no_expire", default=False, action='store_true',
+                  help="With protocol command, remove expiry from all keys")
+    expire_group.add_argument("-a", "--amend-expire", dest="amend_expire", default=0, type=int, metavar='N',
+                  help="With protocol command, add N seconds to key expiry time")
+    parser.add_argument("dump_file", nargs=1, help="RDB Dump file to process")
 
-    (options, args) = parser.parse_args()
-    
-    if len(args) == 0:
-        parser.error("Redis RDB file not specified")
-    dump_file = args[0]
+    options = parser.parse_args()
     
     filters = {}
     if options.dbs:
@@ -84,7 +86,10 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
                 'justkeyvals': lambda f: KeyValsOnlyCallback(f, string_escape=options.escape),
                 'memory': lambda f: MemoryCallback(PrintAllKeys(f, options.bytes, options.largest),
                                                    64, string_escape=options.escape),
-                'protocol': lambda f: ProtocolCallback(f, string_escape=options.escape)
+                'protocol': lambda f: ProtocolCallback(f, string_escape=options.escape,
+                                                       emit_expire=not options.no_expire,
+                                                       amend_expire=options.amend_expire
+                                                      )
             }[options.command](out_file_obj)
         except:
             raise Exception('Invalid Command %s' % options.command)
@@ -98,7 +103,7 @@ Example : %prog --command json -k "user.*" /var/redis/6379/dump.rdb"""
             eprint("")
 
         parser = RdbParser(callback, filters=filters)
-        parser.parse(dump_file)
+        parser.parse(options.dump_file[0])
     finally:
         if options.output and out_file_obj is not None:
             out_file_obj.close()
