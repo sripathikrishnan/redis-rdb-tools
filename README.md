@@ -153,7 +153,7 @@ To limit the size of the files, you can filter on keys using the `--key` option
 
 You can convert RDB file into a stream of [redis protocol](http://redis.io/topics/protocol) using the `protocol` command.
 
-    > rdb --c protocol /var/redis/6379/dump.rdb
+    > rdb -c protocol /var/redis/6379/dump.rdb
     
     *4
     $4
@@ -171,6 +171,12 @@ and then pipe the output to a running redis instance to load that data.
 Read [Redis Mass Insert](http://redis.io/topics/mass-insert) for more information on this.
 
 When printing protocol output, the `--escape` option can be used with `printable` or `utf8` to avoid non printable/control characters.
+
+By default, expire times are emitted verbatim if they are present in the rdb file, causing all keys that expire in the past to be removed.
+If this behaviour is unwanted the `-x/--no-expire` option will ignore all key expiry commands.
+
+Otherwise you may want to set an expiry time in the future with `-a/--amend-expire` option which adds an integer number of seconds to the expiry time of each key which is already set to expire.
+This will not change keys that do not already have an expiry set.
 
 # Using the Parser ##
 

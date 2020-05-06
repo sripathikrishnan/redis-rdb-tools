@@ -356,8 +356,11 @@ def _unix_timestamp(dt):
 
 
 class ProtocolCallback(RdbCallback):
-    def __init__(self, out, string_escape=None):
+    def __init__(self, out, string_escape=None, emit_expire=True, amend_expire=0):
         super(ProtocolCallback, self).__init__(string_escape)
+        self._emit_expire = emit_expire
+        self._amend_expire = (amend_expire > 0)
+        self._expire_delta = calendar.datetime.timedelta(seconds=amend_expire)
         self._out = out
         self.reset()
 
@@ -365,6 +368,8 @@ class ProtocolCallback(RdbCallback):
         self._expires = {}
 
     def set_expiry(self, key, dt):
+        if self._amend_expire:
+            dt = dt + self._expire_delta
         self._expires[key] = dt
 
     def get_expiry_seconds(self, key):
@@ -376,7 +381,7 @@ class ProtocolCallback(RdbCallback):
         return key in self._expires
 
     def pre_expiry(self, key, expiry):
-        if expiry is not None:
+        if expiry is not None and self._emit_expire:
             self.set_expiry(key, expiry)
 
     def post_expiry(self, key):
