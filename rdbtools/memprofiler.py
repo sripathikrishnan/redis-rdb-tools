@@ -317,7 +317,9 @@ class MemoryCallback(RdbCallback):
     def start_module(self, key, module_id, expiry, info):
         self._key_expiry = expiry
         self._current_encoding = module_id
-        self._current_size = self.top_level_object_overhead(key, expiry)
+        self._current_size = 0
+        if key is not None:
+            self._current_size += self.top_level_object_overhead(key, expiry)
         self._current_size += 8 + 1  # add the module id length and EOF byte
 
         return False  # don't build the full key buffer

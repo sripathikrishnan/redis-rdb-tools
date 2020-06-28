@@ -461,9 +461,10 @@ class RdbParser(object):
                         self.read_object(f, data_type)
                     else:
                         self.skip_object(f, data_type)
-                    self._key = None
                 else :
                     self.skip_key_and_object(f, data_type)
+                self._key = None
+
 
     def read_length_with_encoding(self, f):
         length = 0
