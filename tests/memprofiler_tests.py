@@ -25,10 +25,15 @@ CSV_WITH_MODULE = """database,type,key,size_in_bytes,encoding,num_elements,len_l
 
 class Stats(object):
     def __init__(self):
+        self.sums = {}
         self.records = {}
 
     def next_record(self, record):
-        self.records[record.key] = record
+        if record.type not in self.sums:
+            self.sums[record.type] = 0
+        self.sums[record.type] += record.bytes
+        if record.key is not None:
+            self.records[record.key] = record
 
 
 def get_stats(file_name):
@@ -37,6 +42,13 @@ def get_stats(file_name):
     parser = RdbParser(callback)
     parser.parse(os.path.join(os.path.dirname(__file__), 'dumps', file_name))
     return stats.records
+
+def get_sums(file_name):
+    stats = Stats()
+    callback = MemoryCallback(stats, 64)
+    parser = RdbParser(callback)
+    parser.parse(os.path.join(os.path.dirname(__file__), 'dumps', file_name))
+    return stats.sums
 
 def get_csv(dump_file_name):
     buff = BytesIO()
@@ -89,6 +101,10 @@ class MemoryCallbackTestCase(unittest.TestCase):
                                        bytes=101, encoding='ReJSON-RL', size=1,
                                        len_largest_element=101, expiry=None)
         self.assertEquals(stats['foo'], expected_record)
+
+    def test_rdb_with_module_aux(self):
+        sums = get_sums('redis_60_with_module_aux.rdb')
+        self.assertEquals(sums['module'], 32)
 
     def test_rdb_with_stream(self):
         stats = get_stats('redis_50_with_streams.rdb')

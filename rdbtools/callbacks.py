@@ -124,6 +124,8 @@ class JSONCallback(RdbCallback):
         self._out.write(b'}')
 
     def start_module(self, key, module_name, expiry, info):
+        if key is None:
+            key = "__aux__"
         self._start_key(key, 0)
         self._out.write(self.encode_key(key) + b':{')
         return False
@@ -172,7 +174,8 @@ class KeysOnlyCallback(RdbCallback):
         self._keyout(key)
 
     def start_module(self, key, module_name, expiry, info):
-        self._keyout(key)
+        if key is not None:
+            self._keyout(key)
         return False
 
 class KeyValsOnlyCallback(RdbCallback):
@@ -258,6 +261,8 @@ class KeyValsOnlyCallback(RdbCallback):
         self._end_key(key)
 
     def start_module(self, key, module_name, expiry, info):
+        if key is None:
+            return False
         self._start_key(key, 0)
         self._out.write(self.encode_key(key) + b' ')
         return False
@@ -343,6 +348,8 @@ class DiffCallback(RdbCallback):
         self.newline()
 
     def start_module(self, key, module_name, expiry, info):
+        if key is None:
+            key = "__aux__"
         self._out.write(self.dbstr() + self.encode_key(key) + b' -> module-name=' + codecs.encode(module_name, 'ascii'))
         self.newline()
         return False
