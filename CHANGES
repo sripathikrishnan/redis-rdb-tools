@@ -1,3 +1,9 @@
+* 0.1.15
+    * add --no-expire and --amend-expire features for protocol backend
+    * fix bugs handling module rdb aux data (when no key name)
+    * fix bug of being unable to correctly skip (filter) a module value
+    * use ArgumentParser instead of OptionParser
+
 * 0.1.14
     * fix parsing crash for rdb with module data containing floats
     * fix memprofiler crash on python 2.x crash on long integers
