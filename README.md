@@ -32,7 +32,7 @@ To install from source :
 # Command line usage examples
 
 Every run of RDB Tool requires to specify a command to indicate what should be done with the parsed RDB data.
-Valid commands are: json, diff, justkeys, justkeyvals and protocol.
+Valid commands are: json, csv, diff, justkeys, justkeyvals and protocol.
 
 JSON from a two database dump:
 
@@ -47,6 +47,18 @@ JSON from a two database dump:
     "baloon":{"helium":"birthdays","medical":"angioplasty","weather":"meteorology"},
     "armadillo":["chacoan naked-tailed","giant","Andean hairy","nine-banded","pink fairy"],
     "aroma":{"pungent":"vinegar","putrid":"rotten eggs","floral":"roses"}}]
+
+CSV from a two database dump:
+
+    > rdb --command csv /var/redis/6379/dump.rdb
+
+    database,type,key,size_in_bytes,encoding,num_elements,len_largest_element
+    0,list,lizards,241,quicklist,5,19
+    0,list,user_list,190,quicklist,3,7
+    2,hash,baloon,138,ziplist,3,11
+    2,list,armadillo,231,quicklist,5,20
+    2,hash,aroma,129,ziplist,3,11
+
 
 ## Filter parsed output
 
