@@ -3,7 +3,7 @@ from __future__ import print_function
 import os
 import sys
 from argparse import ArgumentParser
-from rdbtools import RdbParser, JSONCallback, DiffCallback, MemoryCallback, ProtocolCallback, PrintAllKeys, KeysOnlyCallback, KeyValsOnlyCallback
+from rdbtools import RdbParser, JSONCallback, CSVCallback, DiffCallback, MemoryCallback, ProtocolCallback, PrintAllKeys, KeysOnlyCallback, KeyValsOnlyCallback
 from rdbtools.encodehelpers import ESCAPE_CHOICES
 from rdbtools.parser import HAS_PYTHON_LZF as PYTHON_LZF_INSTALLED
 
@@ -82,6 +82,7 @@ Example : %(prog)s --command json -k "user.*" /var/redis/6379/dump.rdb"""
             callback = {
                 'diff': lambda f: DiffCallback(f, string_escape=options.escape),
                 'json': lambda f: JSONCallback(f, string_escape=options.escape),
+                'csv': lambda f: CSVCallback(f, string_escape=options.escape),
                 'justkeys': lambda f: KeysOnlyCallback(f, string_escape=options.escape),
                 'justkeyvals': lambda f: KeyValsOnlyCallback(f, string_escape=options.escape),
                 'memory': lambda f: MemoryCallback(PrintAllKeys(f, options.bytes, options.largest),
