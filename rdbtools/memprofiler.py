@@ -413,10 +413,13 @@ class MemoryCallback(RdbCallback):
         # https://github.com/antirez/redis/blob/unstable/src/sds.h
         try:
             num = int(string)
-            if num < REDIS_SHARED_INTEGERS :
+            tmp_str = str(num)
+            long_max = (1 << (self._architecture - 1)) - 1
+
+            # if string like '0****' or '-0***', should calculate malloc_overhead
+            # if num is between long_min and long_max,the integer is part of the robj, no extra memory
+            if string == tmp_str and -long_max - 1 <= num <= long_max:
                 return 0
-            else :
-                return 0  # the integer is part of the robj, no extra memory
         except ValueError:
             pass
         l = len(string)
