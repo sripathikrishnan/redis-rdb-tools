@@ -48,7 +48,7 @@ h3. RDB Version Number
 
 The next 4 bytes store the version number of the rdb format. The 4 bytes are interpreted as ascii characters and then converted to an integer using string to integer conversion.
 
-@00 00 00 03 # Version = 3@
+@30 30 30 33 # Version = 3@
 
 h3. Database Selector
 
