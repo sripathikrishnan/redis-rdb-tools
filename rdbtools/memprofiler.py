@@ -164,11 +164,11 @@ class MemoryCallback(RdbCallback):
         pass
 
     def aux_field(self, key, value):
-        if key == 'used-mem':
+        if key == b'used-mem':
             self._aux_used_mem = int(value)
-        if key == 'redis-ver':
-            self._aux_redis_ver = value
-        if key == 'redis-bits':
+        if key == b'redis-ver':
+            self._aux_redis_ver = value.decode('utf-8')
+        if key == b'redis-bits':
             self._aux_redis_bits = int(value)
 
     def start_database(self, db_number):
