@@ -32,13 +32,13 @@ class StatsAggregator(object):
         self.add_aggregate('database_memory', 'all', record.bytes)
         self.add_aggregate('type_memory', record.type, record.bytes)
         self.add_aggregate('encoding_memory', record.encoding, record.bytes)
-        
+
         self.add_aggregate('type_count', record.type, 1)
         self.add_aggregate('encoding_count', record.encoding, 1)
-    
+
         self.add_histogram(record.type + "_length", record.size)
         self.add_histogram(record.type + "_memory", (record.bytes/10) * 10)
-        
+
         if record.type == 'list':
             self.add_scatter('list_memory_by_length', record.bytes, record.size)
         elif record.type == 'hash':
@@ -57,12 +57,12 @@ class StatsAggregator(object):
     def add_aggregate(self, heading, subheading, metric):
         if not heading in self.aggregates :
             self.aggregates[heading] = {}
-        
+
         if not subheading in self.aggregates[heading]:
             self.aggregates[heading][subheading] = 0
-            
+
         self.aggregates[heading][subheading] += metric
-    
+
     def add_histogram(self, heading, metric):
         if not heading in self.histograms:
             self.histograms[heading] = {}
@@ -71,7 +71,7 @@ class StatsAggregator(object):
             self.histograms[heading][metric] = 1
         else :
             self.histograms[heading][metric] += 1
-    
+
     def add_scatter(self, heading, x, y):
         if not heading in self.scatters:
             self.scatters[heading] = []
@@ -79,10 +79,10 @@ class StatsAggregator(object):
 
     def set_metadata(self, key, val):
         self.metadata[key] = val
-  
+
     def get_json(self):
         return json.dumps({"aggregates": self.aggregates, "scatters": self.scatters, "histograms": self.histograms, "metadata": self.metadata})
-        
+
 class PrintAllKeys(object):
     def __init__(self, out, bytes, largest):
         self._bytes = bytes
@@ -94,14 +94,20 @@ class PrintAllKeys(object):
 
         if self._largest is not None:
             self._heap = []
-    
+
+    def _safe_csv(self, s):
+        if "," in s:
+            return "\"" + s.replace("\"", "\"\"") + "\""
+        else:
+            return s
+
     def next_record(self, record) :
         if record.key is None:
             return  # some records are not keys (e.g. dict)
         if self._largest is None:
             if self._bytes is None or record.bytes >= int(self._bytes):
                 rec_str = "%d,%s,%s,%d,%s,%d,%d,%s\n" % (
-                    record.database, record.type, record.key, record.bytes, record.encoding, record.size,
+                    record.database, record.type, self._safe_csv(record.key), record.bytes, record.encoding, record.size,
                     record.len_largest_element,
                     record.expiry.isoformat() if record.expiry else '')
                 self._out.write(codecs.encode(rec_str, 'latin-1'))
@@ -120,7 +126,7 @@ class PrintAllKeys(object):
 class PrintJustKeys(object):
     def __init__(self, out):
         self._out = out
-    
+
     def next_record(self, record):
         self._out.write(codecs.encode("%s\n" % record.key, 'latin-1'))
 
@@ -197,13 +203,13 @@ class MemoryCallback(RdbCallback):
         length = self.element_length(value)
         self.emit_record("string", key, size, self._current_encoding, length, length, expiry)
         self.end_key()
-    
+
     def start_hash(self, key, length, expiry, info):
         self._current_encoding = info['encoding']
         self._current_length = length
         self._key_expiry = expiry
         size = self.top_level_object_overhead(key, expiry)
-        
+
         if 'sizeof_value' in info:
             size += info['sizeof_value']
         elif 'encoding' in info and info['encoding'] == 'hashtable':
@@ -211,25 +217,25 @@ class MemoryCallback(RdbCallback):
         else:
             raise Exception('start_hash', 'Could not find encoding or sizeof_value in info object %s' % info)
         self._current_size = size
-    
+
     def hset(self, key, field, value):
         if(self.element_length(field) > self._len_largest_element) :
             self._len_largest_element = self.element_length(field)
         if(self.element_length(value) > self._len_largest_element) :
             self._len_largest_element = self.element_length(value)
-        
+
         if self._current_encoding == 'hashtable':
             self._current_size += self.sizeof_string(field)
             self._current_size += self.sizeof_string(value)
             self._current_size += self.hashtable_entry_overhead()
             if self._redis_version < StrictVersion('4.0'):
                 self._current_size += 2*self.robj_overhead()
-    
+
     def end_hash(self, key):
         self.emit_record("hash", key, self._current_size, self._current_encoding, self._current_length,
                          self._len_largest_element, self._key_expiry)
         self.end_key()
-    
+
     def start_set(self, key, cardinality, expiry, info):
         # A set is exactly like a hashmap
         self.start_hash(key, cardinality, expiry, info)
@@ -237,18 +243,18 @@ class MemoryCallback(RdbCallback):
     def sadd(self, key, member):
         if(self.element_length(member) > self._len_largest_element) :
             self._len_largest_element = self.element_length(member)
-            
+
         if self._current_encoding == 'hashtable':
             self._current_size += self.sizeof_string(member)
             self._current_size += self.hashtable_entry_overhead()
             if self._redis_version < StrictVersion('4.0'):
                 self._current_size += self.robj_overhead()
-    
+
     def end_set(self, key):
         self.emit_record("set", key, self._current_size, self._current_encoding, self._current_length,
                          self._len_largest_element, self._key_expiry)
         self.end_key()
-    
+
     def start_list(self, key, expiry, info):
         self._current_length = 0
         self._list_items_size = 0  # size of all elements in case list ends up using linked list
@@ -272,7 +278,7 @@ class MemoryCallback(RdbCallback):
             self._list_max_ziplist_value = 64
 
         self._current_size = size
-            
+
     def rpush(self, key, value):
         self._current_length += 1
         # in linked list, when the robj has integer encoding, the value consumes no memory on top of the robj
@@ -385,30 +391,30 @@ class MemoryCallback(RdbCallback):
         else:
             raise Exception('start_sorted_set', 'Could not find encoding or sizeof_value in info object %s' % info)
         self._current_size = size
-    
+
     def zadd(self, key, score, member):
         if(self.element_length(member) > self._len_largest_element):
             self._len_largest_element = self.element_length(member)
-        
+
         if self._current_encoding == 'skiplist':
             self._current_size += 8 # score (double)
             self._current_size += self.sizeof_string(member)
             if self._redis_version < StrictVersion('4.0'):
                 self._current_size += self.robj_overhead()
             self._current_size += self.skiplist_entry_overhead()
-    
+
     def end_sorted_set(self, key):
         self.emit_record("sortedset", key, self._current_size, self._current_encoding, self._current_length,
                          self._len_largest_element, self._key_expiry)
         self.end_key()
-        
+
     def end_key(self):
         self._db_keys += 1
         self._current_encoding = None
         self._current_size = 0
         self._len_largest_element = 0
         self._key_expiry = None
-    
+
     def sizeof_string(self, string):
         # https://github.com/antirez/redis/blob/unstable/src/sds.h
         try:
@@ -433,7 +439,7 @@ class MemoryCallback(RdbCallback):
         return self.malloc_overhead(l + 1 + 16 + 1)
 
     def top_level_object_overhead(self, key, expiry):
-        # Each top level object is an entry in a dictionary, and so we have to include 
+        # Each top level object is an entry in a dictionary, and so we have to include
         # the overhead of a dictionary entry
         return self.hashtable_entry_overhead() + self.sizeof_string(key) + self.robj_overhead() + self.key_expiry_overhead(expiry)
 
@@ -445,25 +451,25 @@ class MemoryCallback(RdbCallback):
         # Key expiry is stored in a hashtable, so we have to pay for the cost of a hashtable entry
         # The timestamp itself is stored as an int64, which is a 8 bytes
         return self.hashtable_entry_overhead() + 8
-        
+
     def hashtable_overhead(self, size):
         # See  https://github.com/antirez/redis/blob/unstable/src/dict.h
         # See the structures dict and dictht
         # 2 * (3 unsigned longs + 1 pointer) + int + long + 2 pointers
-        # 
+        #
         # Additionally, see **table in dictht
         # The length of the table is the next power of 2
         # When the hashtable is rehashing, another instance of **table is created
-        # Due to the possibility of rehashing during loading, we calculate the worse 
+        # Due to the possibility of rehashing during loading, we calculate the worse
         # case in which both tables are allocated, and so multiply
         # the size of **table by 1.5
         return 4 + 7*self.sizeof_long() + 4*self.sizeof_pointer() + self.next_power(size)*self.sizeof_pointer()*1.5
-        
+
     def hashtable_entry_overhead(self):
         # See  https://github.com/antirez/redis/blob/unstable/src/dict.h
         # Each dictEntry has 2 pointers + int64
         return 2*self.sizeof_pointer() + 8
-    
+
     def linkedlist_overhead(self):
         # See https://github.com/antirez/redis/blob/unstable/src/adlist.h
         # A list has 5 pointers + an unsigned long
@@ -514,13 +520,13 @@ class MemoryCallback(RdbCallback):
 
     def skiplist_overhead(self, size):
         return 2*self.sizeof_pointer() + self.hashtable_overhead(size) + (2*self.sizeof_pointer() + 16)
-    
+
     def skiplist_entry_overhead(self):
         return self.hashtable_entry_overhead() + 2*self.sizeof_pointer() + 8 + (self.sizeof_pointer() + 8) * self.zset_random_level()
-    
+
     def robj_overhead(self):
         return self.sizeof_pointer() + 8
-        
+
     def malloc_overhead(self, size):
         alloc = get_jemalloc_allocation(size)
         self._total_internal_frag += alloc - size
@@ -528,10 +534,10 @@ class MemoryCallback(RdbCallback):
 
     def size_t(self):
         return self.sizeof_pointer()
-        
+
     def sizeof_pointer(self):
         return self._pointer_size
-        
+
     def sizeof_long(self):
         return self._long_size
 
@@ -540,13 +546,13 @@ class MemoryCallback(RdbCallback):
         while (power <= size) :
             power = power << 1
         return power
- 
+
     def zset_random_level(self):
         level = 1
         rint = random.randint(0, 0xFFFF)
         while (rint < ZSKIPLIST_P * 0xFFFF):
             level += 1
-            rint = random.randint(0, 0xFFFF)        
+            rint = random.randint(0, 0xFFFF)
         if level < ZSKIPLIST_MAXLEVEL :
             return level
         else:

@@ -22,7 +22,9 @@ CSV_WITH_MODULE = """database,type,key,size_in_bytes,encoding,num_elements,len_l
 0,string,simplekey,72,string,7,7,
 0,module,foo,101,ReJSON-RL,1,101,
 """
-
+CSV_WITH_COMMA = """database,type,key,size_in_bytes,encoding,num_elements,len_largest_element,expiry
+0,string,"a,""b"",c",64,string,4,4,
+"""
 class Stats(object):
     def __init__(self):
         self.sums = {}
@@ -54,7 +56,7 @@ def get_csv(dump_file_name):
     buff = BytesIO()
     callback = MemoryCallback(PrintAllKeys(buff, None, None), 64)
     parser = RdbParser(callback)
-    parser.parse(os.path.join(os.path.dirname(__file__), 
+    parser.parse(os.path.join(os.path.dirname(__file__),
                     'dumps', dump_file_name))
     csv = buff.getvalue().decode()
     return csv
@@ -75,6 +77,10 @@ class MemoryCallbackTestCase(unittest.TestCase):
         csv = get_csv('redis_40_with_module.rdb')
         self.assertEquals(csv, CSV_WITH_MODULE)
 
+    def test_csv_key_with_comma(self):
+        csv = get_csv('key-with-comma.rdb')
+        self.assertEquals(csv, CSV_WITH_COMMA)
+
     def test_expiry(self):
         stats = get_stats('keys_with_expiry.rdb')
 
@@ -85,7 +91,7 @@ class MemoryCallbackTestCase(unittest.TestCase):
         self.assertEquals(expiry.hour, 10)
         self.assertEquals(expiry.minute, 11)
         self.assertEquals(expiry.second, 12)
-        self.assertEquals(expiry.microsecond, 573000)        
+        self.assertEquals(expiry.microsecond, 573000)
 
     def test_len_largest_element(self):
         stats = get_stats('ziplist_that_compresses_easily.rdb')
