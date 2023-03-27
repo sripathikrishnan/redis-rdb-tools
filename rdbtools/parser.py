@@ -7,13 +7,7 @@ from rdbtools.encodehelpers import STRING_ESCAPE_RAW, apply_escape_bytes, bval
 from .compat import range, str2regexp
 from .iowrapper import IOWrapper
 
-try:
-    try:
-        from cStringIO import StringIO as BytesIO
-    except ImportError:
-        from StringIO import StringIO as BytesIO
-except ImportError:
-    from io import BytesIO
+from io import BytesIO
 
 try:
     import lzf
@@ -52,6 +46,10 @@ REDIS_RDB_TYPE_ZSET_ZIPLIST = 12
 REDIS_RDB_TYPE_HASH_ZIPLIST = 13
 REDIS_RDB_TYPE_LIST_QUICKLIST = 14
 REDIS_RDB_TYPE_STREAM_LISTPACKS = 15
+REDIS_RDB_TYPE_HASH_LISTPACK = 16
+REDIS_RDB_TYPE_ZSET_LISTPACK = 17
+REDIS_RDB_TYPE_LIST_QUICKLIST_2 = 18
+REDIS_RDB_TYPE_STREAM_LISTPACKS_2 = 19
 
 REDIS_RDB_ENC_INT8 = 0
 REDIS_RDB_ENC_INT16 = 1
@@ -67,7 +65,8 @@ REDIS_RDB_MODULE_OPCODE_STRING = 5
 
 DATA_TYPE_MAPPING = {
     0 : "string", 1 : "list", 2 : "set", 3 : "sortedset", 4 : "hash", 5 : "sortedset", 6 : "module", 7: "module",
-    9 : "hash", 10 : "list", 11 : "set", 12 : "sortedset", 13 : "hash", 14 : "list", 15 : "stream"}
+    9 : "hash", 10 : "list", 11 : "set", 12 : "sortedset", 13 : "hash", 14 : "list", 15 : "stream", 16 : "hash", 
+    17: "sortedset", 18: "list", 19: "stream"}
 
 class RdbCallback(object):
     """
@@ -588,6 +587,14 @@ class RdbParser(object):
             self.read_module(f)
         elif enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS:
             self.read_stream(f)
+        elif enc_type == REDIS_RDB_TYPE_HASH_LISTPACK:
+            self.read_hash_from_listpack(f)
+        elif enc_type == REDIS_RDB_TYPE_ZSET_LISTPACK:
+            self.read_zset_from_listpack(f)
+        elif enc_type == REDIS_RDB_TYPE_LIST_QUICKLIST_2:
+            self.read_list_from_quicklist2(f)
+        elif enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS_2:
+            self.read_stream_from_listpacks2(f)
         else:
             raise Exception('read_object', 'Invalid object type %d for key %s' % (enc_type, self._key))
 
@@ -657,6 +664,14 @@ class RdbParser(object):
             self.skip_module(f)
         elif enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS:
             self.skip_stream(f)
+        elif enc_type == REDIS_RDB_TYPE_HASH_LISTPACK:
+            self.read_hash_from_listpack(f)
+        elif enc_type == REDIS_RDB_TYPE_ZSET_LISTPACK:
+            self.read_zset_from_listpack(f)
+        elif enc_type == REDIS_RDB_TYPE_LIST_QUICKLIST_2:
+            self.read_list_from_quicklist2(f)
+        elif enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS_2:
+            self.read_stream_from_listpacks2(f)
         else:
             raise Exception('skip_object', 'Invalid object type %d for key %s' % (enc_type, self._key))
         for x in range(0, skip_strings):
