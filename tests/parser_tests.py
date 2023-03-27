@@ -224,13 +224,13 @@ def floateq(f1, f2) :
 def load_rdb(file_name, filters=None) :
     r = MockRedis()
     parser = RdbParser(r, filters)
-    parser.parse(os.path.join(os.path.dirname(__file__), 'dumps', file_name))
+    parser.parse(os.path.join(os.path.dirname(__file__), 'dumps-7', file_name))
     return r
 
 def load_rdb_stream(file_name, filters=None) :
     r = MockRedis()
     parser = RdbParser(r, filters)
-    parser.parse_fd(open(os.path.join(os.path.dirname(__file__), 'dumps', file_name), 'rb'))
+    parser.parse_fd(open(os.path.join(os.path.dirname(__file__), 'dumps-7', file_name), 'rb'))
     return r
     
 class MockRedis(RdbCallback):

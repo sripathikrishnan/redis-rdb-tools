@@ -12,7 +12,7 @@ def create_test_rdbs(path_to_redis_dump, dump_folder) :
     clean_database()
     tests = (
 #                empty_database,
-#                multiple_databases,
+                multiple_databases,
 #                keys_with_expiry, 
 #                integer_keys, 
 #                uncompressible_string_keys, 
@@ -23,7 +23,7 @@ def create_test_rdbs(path_to_redis_dump, dump_folder) :
 #                dictionary, 
 #                ziplist_that_compresses_easily, 
 #                ziplist_that_doesnt_compress, 
-                ziplist_with_integers, 
+#                ziplist_with_integers, 
 #                linkedlist, 
 #                intset_16, 
 #                intset_32, 
@@ -40,7 +40,7 @@ def create_rdb_file(test, path_to_rdb, dump_folder):
     test()
     save_database()
     file_name = "%s.rdb" % test.__name__
-    shutil.copy(path_to_rdb, os.path.join(dump_folder, file_name))
+#    shutil.copy(path_to_rdb, os.path.join(dump_folder, file_name))
     
 def clean_database() :
     r.flushall()
@@ -177,13 +177,14 @@ def backup_redis_dump(redis_dump, backup_folder):
     shutil.copy(redis_dump, backup_file)
     
 def main() :
-    dump_folder = os.path.join(os.path.dirname(__file__), 'dumps')
+    dump_folder = os.path.join(os.path.dirname(__file__), 'dumps7')
     if not os.path.exists(dump_folder) :
         os.makedirs(dump_folder)
     
-    redis_dump = '/var/redis/6379/dump.rdb'
+#    redis_dump = '/var/redis/6379/dump.rdb'
+    redis_dump = '/Users/zhangshuyang/Documents/Code/OpenSource/redis/dump.rdb'
     
-    backup_redis_dump(redis_dump, dump_folder)
+    #backup_redis_dump(redis_dump, dump_folder)
     create_test_rdbs(redis_dump, dump_folder)
 
 if __name__ == '__main__' :
