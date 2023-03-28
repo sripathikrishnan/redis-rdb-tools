@@ -52,6 +52,12 @@ REDIS_RDB_TYPE_ZSET_ZIPLIST = 12
 REDIS_RDB_TYPE_HASH_ZIPLIST = 13
 REDIS_RDB_TYPE_LIST_QUICKLIST = 14
 REDIS_RDB_TYPE_STREAM_LISTPACKS = 15
+REDIS_RDB_TYPE_HASH_LISTPACK = 16
+REDIS_RDB_TYPE_ZSET_LISTPACK = 17
+REDIS_RDB_TYPE_LIST_QUICKLIST_2 = 18
+REDIS_RDB_TYPE_STREAM_LISTPACKS_2 = 19
+REDIS_RDB_TYPE_SET_LISTPACK = 20
+RDB_TYPE_STREAM_LISTPACKS_3 = 21
 
 REDIS_RDB_ENC_INT8 = 0
 REDIS_RDB_ENC_INT16 = 1
@@ -67,7 +73,7 @@ REDIS_RDB_MODULE_OPCODE_STRING = 5
 
 DATA_TYPE_MAPPING = {
     0 : "string", 1 : "list", 2 : "set", 3 : "sortedset", 4 : "hash", 5 : "sortedset", 6 : "module", 7: "module",
-    9 : "hash", 10 : "list", 11 : "set", 12 : "sortedset", 13 : "hash", 14 : "list", 15 : "stream"}
+    9 : "hash", 10 : "list", 11 : "set", 12 : "sortedset", 13 : "hash", 14 : "list", 15 : "stream", 19: "stream"}
 
 class RdbCallback(object):
     """
@@ -588,6 +594,11 @@ class RdbParser(object):
             self.read_module(f)
         elif enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS:
             self.read_stream(f)
+        elif enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS_2:
+            self.read_stream(f,True)
+        elif enc_type == REDIS_RDB_TYPE_HASH_LISTPACK:
+            self.read_string(f)
+            
         else:
             raise Exception('read_object', 'Invalid object type %d for key %s' % (enc_type, self._key))
 
@@ -657,6 +668,10 @@ class RdbParser(object):
             self.skip_module(f)
         elif enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS:
             self.skip_stream(f)
+        elif enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS_2:
+            self.skip_stream(f,True)
+        elif enc_type == REDIS_RDB_TYPE_HASH_LISTPACK:
+            skip_strings =1
         else:
             raise Exception('skip_object', 'Invalid object type %d for key %s' % (enc_type, self._key))
         for x in range(0, skip_strings):
@@ -871,7 +886,7 @@ class RdbParser(object):
             iowrapper.stop_recording()
         self._callback.end_module(self._key, buffer_size=iowrapper.get_recorded_size(), buffer=buffer)
 
-    def skip_stream(self, f):
+    def skip_stream(self, f, altStream=False):
         listpacks = self.read_length(f)
         for _lp in range(listpacks):
             self.skip_string(f)
@@ -879,6 +894,11 @@ class RdbParser(object):
         self.read_length(f)
         self.read_length(f)
         self.read_length(f)
+        if altStream:
+            first_entry_id = "%s-%s" % (self.read_length(f), self.read_length(f))
+            max_deleted_entry_id = "%s-%s" % (self.read_length(f), self.read_length(f))
+            length = self.read_length(f)
+
         cgroups = self.read_length(f)
         for _cg in range(cgroups):
             self.skip_string(f)
@@ -896,7 +916,7 @@ class RdbParser(object):
                 pending = self.read_length(f)
                 f.read(pending*16)
 
-    def read_stream(self, f):
+    def read_stream(self, f, altStream=False):
         listpacks = self.read_length(f)
         self._callback.start_stream(self._key, listpacks, self._expiry,
                                     info={'encoding': 'listpack', 'idle': self._idle, 'freq': self._freq})
@@ -904,6 +924,11 @@ class RdbParser(object):
             self._callback.stream_listpack(self._key, self.read_string(f), self.read_string(f))
         items = self.read_length(f)
         last_entry_id = "%s-%s" % (self.read_length(f), self.read_length(f))
+        if altStream:
+            first_entry_id = "%s-%s" % (self.read_length(f), self.read_length(f))
+            print(first_entry_id)
+            max_deleted_entry_id = "%s-%s" % (self.read_length(f), self.read_length(f))
+            length = self.read_length(f)
         cgroups = self.read_length(f)
         cgroups_data = []
         for _cg in range(cgroups):
@@ -959,7 +984,7 @@ class RdbParser(object):
 
     def verify_version(self, version_str) :
         version = int(version_str)
-        if version < 1 or version > 9:
+        if version < 1 or version > 10:
             raise Exception('verify_version', 'Invalid RDB version number %d' % version)
         self._rdb_version = version
 
