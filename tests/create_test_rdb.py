@@ -13,11 +13,11 @@ def create_test_rdbs(path_to_redis_dump, dump_folder) :
     tests = (
 #                empty_database,
 #                multiple_databases,
-                keys_with_expiry, 
+#                keys_with_expiry, 
 #                integer_keys, 
 #                uncompressible_string_keys, 
 #                easily_compressible_string_key, 
-#                zipmap_that_doesnt_compress, 
+                zipmap_that_doesnt_compress, 
 #                zipmap_that_compresses_easily, 
 #                zipmap_with_big_values,
 #                dictionary, 
@@ -40,7 +40,7 @@ def create_rdb_file(test, path_to_rdb, dump_folder):
     test()
     save_database()
     file_name = "%s.rdb" % test.__name__
-#    shutil.copy(path_to_rdb, os.path.join(dump_folder, file_name))
+    shutil.copy(path_to_rdb, os.path.join(dump_folder, file_name))
     
 def clean_database() :
     r.flushall()
