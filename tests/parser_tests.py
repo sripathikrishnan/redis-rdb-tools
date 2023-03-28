@@ -27,13 +27,13 @@ class RedisParserTestCase(unittest.TestCase):
     def test_keys_with_expiry(self):
         r = load_rdb('keys_with_expiry.rdb')
         expiry = r.expiry[0][b'expires_ms_precision']
-        self.assertEquals(expiry.year, 2022)
+        self.assertEquals(expiry.year, 2023)
         self.assertEquals(expiry.month, 12)
-        self.assertEquals(expiry.day, 25)
-        self.assertEquals(expiry.hour, 10)
-        self.assertEquals(expiry.minute, 11)
-        self.assertEquals(expiry.second, 12)
-        self.assertEquals(expiry.microsecond, 573000)        
+        self.assertEquals(expiry.day, 27)
+        self.assertEquals(expiry.hour, 18)
+        self.assertEquals(expiry.minute, 4)
+        self.assertEquals(expiry.second, 18)
+        self.assertEquals(expiry.microsecond, 573000)
         
     def test_integer_keys(self):
         r = load_rdb('integer_keys.rdb')

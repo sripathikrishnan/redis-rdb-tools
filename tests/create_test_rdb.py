@@ -12,8 +12,8 @@ def create_test_rdbs(path_to_redis_dump, dump_folder) :
     clean_database()
     tests = (
 #                empty_database,
-                multiple_databases,
-#                keys_with_expiry, 
+#                multiple_databases,
+                keys_with_expiry, 
 #                integer_keys, 
 #                uncompressible_string_keys, 
 #                easily_compressible_string_key, 
@@ -52,8 +52,8 @@ def empty_database() :
     pass
 
 def keys_with_expiry() :
-    r.set("expires_ms_precision", "2022-12-25 10:11:12.573 UTC")
-    r.execute_command('PEXPIREAT', "expires_ms_precision", 1671963072573)
+    r.set("expires_ms_precision", "2023-12-27 18:04:18.573 UTC")
+    r.execute_command('PEXPIREAT', "expires_ms_precision", 1703700258573)
 
 def multiple_databases() :
     r.set("key_in_zeroth_database", "zero")
@@ -177,7 +177,7 @@ def backup_redis_dump(redis_dump, backup_folder):
     shutil.copy(redis_dump, backup_file)
     
 def main() :
-    dump_folder = os.path.join(os.path.dirname(__file__), 'dumps7')
+    dump_folder = os.path.join(os.path.dirname(__file__), 'dumps-7')
     if not os.path.exists(dump_folder) :
         os.makedirs(dump_folder)
     
