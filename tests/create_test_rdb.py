@@ -17,7 +17,7 @@ def create_test_rdbs(path_to_redis_dump, dump_folder) :
 #                integer_keys, 
 #                uncompressible_string_keys, 
 #                easily_compressible_string_key, 
-                zipmap_that_doesnt_compress, 
+#                zipmap_that_doesnt_compress, 
 #                zipmap_that_compresses_easily, 
 #                zipmap_with_big_values,
 #                dictionary, 
@@ -30,7 +30,7 @@ def create_test_rdbs(path_to_redis_dump, dump_folder) :
 #                intset_64, 
 #                regular_set, 
 #                sorted_set_as_ziplist, 
-#                regular_sorted_set
+                regular_sorted_set,
             )
     for t in tests :
         create_rdb_file(t, path_to_redis_dump, dump_folder)
@@ -159,14 +159,15 @@ def regular_set() :
     r.sadd("regular_set", "kappa")
 
 def sorted_set_as_ziplist() :
-    r.zadd("sorted_set_as_ziplist", 1, "8b6ba6718a786daefa69438148361901")
-    r.zadd("sorted_set_as_ziplist", 2.37, "cb7a24bb7528f934b841b34c3a73e0c7")
-    r.zadd("sorted_set_as_ziplist", 3.423, "523af537946b79c4f8369ed39ba78605")
+    dict = {'8b6ba6718a786daefa69438148361901': 1, 'cb7a24bb7528f934b841b34c3a73e0c7': 2.37, '523af537946b79c4f8369ed39ba78605': 3.423}
+    r.zadd("sorted_set_as_ziplist", dict)
     
 def regular_sorted_set() :
     num_entries = 500
+    dict = {}
     for x in range(0, num_entries) :
-        r.zadd("force_sorted_set", float(x) / 100, random_string(50, x))
+        dict[random_string(50, x)] = float(x) / 100
+    r.zadd("force_sorted_set", dict)
     
 def random_string(length, seed) :
     random.seed(seed)

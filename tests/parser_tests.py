@@ -96,6 +96,14 @@ class RedisParserTestCase(unittest.TestCase):
         self.assertEquals(r.databases[0][b"force_dictionary"][b"UHS5ESW4HLK8XOGTM39IK1SJEUGVV9WOPK6JYA5QBZSJU84491"],
                     b"6VULTCV52FXJ8MGVSFTZVAGK2JXZMGQ5F8OVJI0X6GEDDR27RZ")
 
+    def test_dictionary_7(self):
+        r = load_rdb('dictionary_7.rdb')
+        self.assertEquals(r.lengths[0][b"force_dictionary"], 1000)
+        self.assertEquals(r.databases[0][b"force_dictionary"][b"4RG21SSDDQX3X5AFSKAGSKT74ZPMXEFSD3X7GLINJIO5VLEVGR"], 
+                    b"CINWKGMX1V6CBVI9BP9GI1BYLAPZ90YO543MJ19U2LO641H16Z")
+        self.assertEquals(r.databases[0][b"force_dictionary"][b"DRF0RGCY89VVDKIV9VPKA1FYEAU2GCFJIBS14Q4CTV74N7UAZ6"], 
+                    b"RT96A6C3SCEK5AANU33W1O4BZERY4UQ25RKGGTBSLO2YRX5JNO")
+
     def test_ziplist_that_compresses_easily(self):
         r = load_rdb('ziplist_that_compresses_easily.rdb')
         self.assertEquals(r.lengths[0][b"ziplist_compresses_easily"], 6)
@@ -123,11 +131,17 @@ class RedisParserTestCase(unittest.TestCase):
         for num in expected_numbers :
             self.assert_(num in r.databases[0][b"ziplist_with_integers"], "Cannot find %d" % num)
 
-    def test_linkedlist(self):
-        r = load_rdb('linkedlist.rdb')
+    # def test_linkedlist(self):
+    #     r = load_rdb('linkedlist.rdb')
+    #     self.assertEquals(r.lengths[0][b"force_linkedlist"], 1000)
+    #     self.assert_(b"JYY4GIFI0ETHKP4VAJF5333082J4R1UPNPLE329YT0EYPGHSJQ" in r.databases[0][b"force_linkedlist"])
+    #     self.assert_(b"TKBXHJOX9Q99ICF4V78XTCA2Y1UYW6ERL35JCIL1O0KSGXS58S" in r.databases[0][b"force_linkedlist"])
+
+    def test_linkedlist_7(self):
+        r = load_rdb('linkedlist_7.rdb')
         self.assertEquals(r.lengths[0][b"force_linkedlist"], 1000)
-        self.assert_(b"JYY4GIFI0ETHKP4VAJF5333082J4R1UPNPLE329YT0EYPGHSJQ" in r.databases[0][b"force_linkedlist"])
-        self.assert_(b"TKBXHJOX9Q99ICF4V78XTCA2Y1UYW6ERL35JCIL1O0KSGXS58S" in r.databases[0][b"force_linkedlist"])
+        self.assert_(b"7TM90K8WBCDL785UGCIA62P39RJDICG5KRXAGUU83JBEWS3HCS" in r.databases[0][b"force_linkedlist"])
+        self.assert_(b"T75MTTTK81WXUL7Y60E2K7ROP9WS0J61ONMXY6735ARNSF5P9O" in r.databases[0][b"force_linkedlist"])
 
     def test_intset_16(self):
         r = load_rdb('intset_16.rdb')

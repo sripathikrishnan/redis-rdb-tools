@@ -8,6 +8,7 @@ from .compat import range, str2regexp
 from .iowrapper import IOWrapper
 
 from io import BytesIO
+from ctypes import c_int16
 
 try:
     import lzf
@@ -951,6 +952,104 @@ class RdbParser(object):
                                  'pending': group_pending_entries,
                                  'consumers': consumers_data})
         self._callback.end_stream(self._key, items, last_entry_id, cgroups_data)
+
+
+    def read_hash_from_listpack(self, f):
+        raw_string = self.read_string(f)
+        buff = BytesIO(raw_string)
+        lpbytes = read_unsigned_int(buff)
+        num_entries = read_unsigned_short(buff)
+        if (num_entries % 2) :
+            raise Exception('read_hash_from_listpack', "Expected even number of elements, but found %d for key %s" % (num_entries, self._key))
+        num_entries = num_entries // 2
+        self._callback.start_hash(self._key, num_entries, self._expiry, info={'encoding':'listpack', 'sizeof_value':len(raw_string),'idle':self._idle,'freq':self._freq})
+        for x in range(0, num_entries) :
+            field = self.read_listpack_entry(buff)
+            value = self.read_listpack_entry(buff)
+            self._callback.hset(self._key, field, value)
+        listpack_end = read_unsigned_char(buff)
+        if listpack_end != 255:
+            raise Exception('read_hash_from_ziplist', "Invalid zip list end - %d for key %s" % (listpack_end, self._key))
+        self._callback.end_hash(self._key)
+
+    def read_listpack_entry(self, f):
+        length = 0
+        value = None
+        bytes = []
+        bytes.append(read_unsigned_char(f))
+        encoding_type = bytes[0]
+        if (encoding_type >> 7) == 0:
+            value = encoding_type & 0x7F
+        elif (encoding_type >> 6) == 2:
+            length = encoding_type & 0x3F
+            value = f.read(length)
+        elif (encoding_type >> 5) == 6:
+            bytes.append(read_unsigned_char(f))
+            value = c_int16(((bytes[0] & 0x1F) << 11) | (bytes[1]) << 3).value
+            value >>= 3
+        elif (encoding_type >> 4) == 14:
+            length = ((encoding_type & 0xF) << 8) | read_unsigned_char(f)
+            value = f.read(length)
+        elif encoding_type == 240:
+            length = read_unsigned_int(f)
+            value = f.read(length)
+        elif encoding_type == 241:
+            value = read_signed_short(f)
+        elif encoding_type == 242:
+            value = read_24bit_signed_number(f)
+        elif encoding_type == 243:
+            value = read_signed_int(f)
+        elif encoding_type == 244:
+            value = read_signed_long(f)
+        else:
+            raise Exception('read_listpack_entry', 'Invalid encoding_type %d for key %s' % (encoding_type, self._key))
+
+        assert 0 <= length <= 34359738367
+        while True:
+            read_unsigned_char(f)
+            length >>= 7
+            if length == 0:
+                break
+
+        return value
+
+    def read_zset_from_listpack(self, f):
+        raw_string = self.read_string(f)
+        buff = BytesIO(raw_string)
+        lpbytes = read_unsigned_int(buff)
+        num_entries = read_unsigned_short(buff)
+        if (num_entries % 2) :
+            raise Exception('read_zset_from_listpack', "Expected even number of elements, but found %d for key %s" % (num_entries, self._key))
+        num_entries = num_entries // 2
+        self._callback.start_sorted_set(self._key, num_entries, self._expiry, info={'encoding':'listpack', 'idle':self._idle,'freq':self._freq})
+        for x in range(0, num_entries) :
+            member = self.read_listpack_entry(buff)
+            score = self.read_listpack_entry(buff)
+            if isinstance(score, bytes) :
+                score = float(score)
+            self._callback.zadd(self._key, score, member)
+        listpack_end = read_unsigned_char(buff)
+        if listpack_end != 255 :
+            raise Exception('read_hash_from_ziplist', "Invalid zip list end - %d for key %s" % (listpack_end, self._key))
+        self._callback.end_sorted_set(self._key)
+
+    def read_list_from_quicklist2(self, f):
+        count = self.read_length(f)
+        total_size = 0
+        self._callback.start_list(self._key, self._expiry, info={'encoding': 'quicklist2', 'listpacks': count,'idle':self._idle,'freq':self._freq})
+        for i in range(0, count):
+            container = self.read_length(f)
+            raw_string = self.read_string(f)
+            buff = BytesIO(raw_string)
+            lpbytes = read_unsigned_int(buff)
+            num_entries = read_unsigned_short(buff)
+            for x in range(0, num_entries):
+                self._callback.rpush(self._key, self.read_listpack_entry(buff))
+            listpack_end = read_unsigned_char(buff)
+            if listpack_end != 255:
+                raise Exception('read_quicklist2', "Invalid listpack end - %d for key %s" % (listpack_end, self._key))
+        self._callback.end_list(self._key, info={'encoding': 'quicklist2', 'quicklist2': count, 'sizeof_value': total_size})
+
 
     charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
 
