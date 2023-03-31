@@ -59,8 +59,8 @@ def empty_database():
     pass
 
 def keys_with_expiry():
-    r.set("expires_ms_precision", "2023-12-27 18:04:18.573 UTC")
-    r.execute_command('PEXPIREAT', "expires_ms_precision", 1703700258573)
+    r.set("expires_ms_precision", "2022-12-25 10:11:12.573 UTC")
+    r.execute_command('PEXPIREAT', "expires_ms_precision", 1671963072573)
 
 def multiple_databases():
     r.set("key_in_zeroth_database", "zero")
