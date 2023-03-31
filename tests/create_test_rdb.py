@@ -243,10 +243,9 @@ def main():
     if not os.path.exists(dump_folder):
         os.makedirs(dump_folder)
     
-#    redis_dump = '/var/redis/6379/dump.rdb'
-    redis_dump = '/Users/zhangshuyang/Documents/Code/OpenSource/redis/dump.rdb'
+    redis_dump = '/var/redis/6379/dump.rdb'
     
-    #backup_redis_dump(redis_dump, dump_folder)
+    backup_redis_dump(redis_dump, dump_folder)
     create_test_rdbs(redis_dump, dump_folder)
 
 if __name__ == '__main__':
