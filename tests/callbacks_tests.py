@@ -17,7 +17,7 @@ else:
     def rand_bytes(count):
         return bytes(random.randrange(256) for _ in range(count))
 
-TEST_DUMPS_DIR = 'dumps-7'
+TEST_DUMPS_DIR = 'dumps'
 
 
 class CallbackTester(unittest.TestCase):

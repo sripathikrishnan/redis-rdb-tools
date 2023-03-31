@@ -7,8 +7,15 @@ from rdbtools.encodehelpers import STRING_ESCAPE_RAW, apply_escape_bytes, bval
 from .compat import range, str2regexp
 from .iowrapper import IOWrapper
 
-from io import BytesIO
 from ctypes import c_int16
+
+try:
+    try:
+        from cStringIO import StringIO as BytesIO
+    except ImportError:
+        from StringIO import StringIO as BytesIO
+except ImportError:
+    from io import BytesIO
 
 try:
     import lzf
@@ -586,16 +593,14 @@ class RdbParser(object):
             raise Exception('read_object', 'Unable to read Redis Modules RDB objects (key %s)' % self._key)
         elif enc_type == REDIS_RDB_TYPE_MODULE_2:
             self.read_module(f)
-        elif enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS:
-            self.read_stream(f)
+        elif enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS or enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS_2:
+            self.read_stream(f, enc_type)
         elif enc_type == REDIS_RDB_TYPE_HASH_LISTPACK:
             self.read_hash_from_listpack(f)
         elif enc_type == REDIS_RDB_TYPE_ZSET_LISTPACK:
             self.read_zset_from_listpack(f)
         elif enc_type == REDIS_RDB_TYPE_LIST_QUICKLIST_2:
             self.read_list_from_quicklist2(f)
-        elif enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS_2:
-            self.read_stream_from_listpacks2(f)
         else:
             raise Exception('read_object', 'Invalid object type %d for key %s' % (enc_type, self._key))
 
@@ -663,16 +668,14 @@ class RdbParser(object):
             raise Exception('skip_object', 'Unable to skip Redis Modules RDB objects (key %s)' % self._key)
         elif enc_type == REDIS_RDB_TYPE_MODULE_2:
             self.skip_module(f)
-        elif enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS:
-            self.skip_stream(f)
+        elif enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS or enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS_2:
+            self.skip_stream(f, enc_type)
         elif enc_type == REDIS_RDB_TYPE_HASH_LISTPACK:
-            self.read_hash_from_listpack(f)
+            skip_strings = 1
         elif enc_type == REDIS_RDB_TYPE_ZSET_LISTPACK:
-            self.read_zset_from_listpack(f)
+            skip_strings = 1
         elif enc_type == REDIS_RDB_TYPE_LIST_QUICKLIST_2:
-            self.read_list_from_quicklist2(f)
-        elif enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS_2:
-            self.read_stream_from_listpacks2(f)
+            self.skip_list_from_quicklist2(f)
         else:
             raise Exception('skip_object', 'Invalid object type %d for key %s' % (enc_type, self._key))
         for x in range(0, skip_strings):
@@ -887,7 +890,7 @@ class RdbParser(object):
             iowrapper.stop_recording()
         self._callback.end_module(self._key, buffer_size=iowrapper.get_recorded_size(), buffer=buffer)
 
-    def skip_stream(self, f):
+    def skip_stream(self, f, rdb_type):
         listpacks = self.read_length(f)
         for _lp in range(listpacks):
             self.skip_string(f)
@@ -895,6 +898,12 @@ class RdbParser(object):
         self.read_length(f)
         self.read_length(f)
         self.read_length(f)
+        if rdb_type == REDIS_RDB_TYPE_STREAM_LISTPACKS_2:
+            self.read_length(f)
+            self.read_length(f)
+            self.read_length(f)
+            self.read_length(f)
+            self.read_length(f)
         cgroups = self.read_length(f)
         for _cg in range(cgroups):
             self.skip_string(f)
@@ -912,7 +921,13 @@ class RdbParser(object):
                 pending = self.read_length(f)
                 f.read(pending*16)
 
-    def read_stream(self, f):
+    def skip_list_from_quicklist2(self, f):
+        count = self.read_length(f)
+        for i in range(0, count):
+            self.read_length(f)
+            self.read_string(f)
+
+    def read_stream(self, f, rdb_type):
         listpacks = self.read_length(f)
         self._callback.start_stream(self._key, listpacks, self._expiry,
                                     info={'encoding': 'listpack', 'idle': self._idle, 'freq': self._freq})
@@ -920,6 +935,10 @@ class RdbParser(object):
             self._callback.stream_listpack(self._key, self.read_string(f), self.read_string(f))
         items = self.read_length(f)
         last_entry_id = "%s-%s" % (self.read_length(f), self.read_length(f))
+        if rdb_type == REDIS_RDB_TYPE_STREAM_LISTPACKS_2:
+            first_entry_id = "%s-%s" % (self.read_length(f), self.read_length(f))
+            max_deleted_entry_id = "%s-%s" % (self.read_length(f), self.read_length(f))
+            entries_added = self.read_length(f)
         cgroups = self.read_length(f)
         cgroups_data = []
         for _cg in range(cgroups):
