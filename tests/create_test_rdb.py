@@ -36,7 +36,8 @@ def create_test_rdbs(path_to_redis_dump, dump_folder):
 #                listpack_multibyte_encodings_13_bit_signed_integer,
 #                listpack_multibyte_encodings_small_strings,
 #                listpack_multibyte_encodings_large_strings,
-                listpack_multibyte_encodings_integer,
+#                listpack_multibyte_encodings_integer,
+                set_as_listpack,
 #                streams,
             )
     for t in tests:
@@ -166,7 +167,7 @@ def regular_set():
 def sorted_set_as_ziplist():
     dict = {'8b6ba6718a786daefa69438148361901': 1, 'cb7a24bb7528f934b841b34c3a73e0c7': 2.37, '523af537946b79c4f8369ed39ba78605': 3.423}
     r.zadd("sorted_set_as_ziplist", dict)
-    
+
 def regular_sorted_set():
     num_entries = 500
     dict = {}
@@ -222,6 +223,14 @@ def listpack_multibyte_encodings_integer():
     r.rpush("listpack_multibyte_encodings_integer", -0x7ffefffefffefffe)
     r.rpush("listpack_multibyte_encodings_integer", 0x7ffefffefffefffe)
 
+def set_as_listpack():
+    r.sadd("set_as_listpack", "abc")
+    r.sadd("set_as_listpack", "abcdefg")
+    r.sadd("set_as_listpack", "abcdefghijklmn")
+    r.sadd("set_as_listpack", -3)
+    r.sadd("set_as_listpack", 50)
+    r.sadd("set_as_listpack", -70)
+
 def streams():
     stream1 = {'temp_f': 87.2, 'pressure': 29.69, 'humidity': 46}
     stream2 = {'temp_f': 83.1, 'pressure': 29.21, 'humidity': 46.5}
@@ -250,4 +259,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

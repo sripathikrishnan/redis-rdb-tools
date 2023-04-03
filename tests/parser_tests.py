@@ -208,6 +208,15 @@ class RedisParserTestCase(unittest.TestCase):
         for num in expected_numbers :
             self.assert_(num in r.databases[0][b"listpack_multibyte_encodings_integer"], "Cannot find %d" % num)
 
+    def test_set_as_listpack(self):
+        r = load_rdb('set_as_listpack.rdb')
+        self.assertEquals(r.lengths[0][b"set_as_listpack"], 6)
+        expected_numbers = [-3, 50, -70]
+        for member in (b"abc", b"abcdefg", b"abcdefghijklmn") :
+            self.assert_(member in r.databases[0][b"set_as_listpack"], msg=('%s missing' % member))
+        for num in expected_numbers :
+            self.assert_(num in r.databases[0][b"set_as_listpack"], "Cannot find %d" % num)
+
     def test_streams(self):
         r = load_rdb('streams.rdb')
         self.assertEquals(r.lengths[0][b"streams"], 3)
