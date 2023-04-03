@@ -33,7 +33,7 @@ class RedisParserTestCase(unittest.TestCase):
         self.assertEquals(expiry.hour, 10)
         self.assertEquals(expiry.minute, 11)
         self.assertEquals(expiry.second, 12)
-        self.assertEquals(expiry.microsecond, 573000)        
+        self.assertEquals(expiry.microsecond, 573000)
         
     def test_integer_keys(self):
         r = load_rdb('integer_keys.rdb')
@@ -53,7 +53,7 @@ class RedisParserTestCase(unittest.TestCase):
         value = b"Key that redis should compress easily"
         self.assertEquals(r.databases[0][key], value)
 
-    def test_zipmap_thats_compresses_easily(self):
+    def test_zipmap_that_compresses_easily(self):
         r = load_rdb('zipmap_that_compresses_easily.rdb')
         self.assertEquals(r.databases[0][b"zipmap_compresses_easily"][b"a"], b"aa")
         self.assertEquals(r.databases[0][b"zipmap_compresses_easily"][b"aa"], b"aaaa")
@@ -160,6 +160,66 @@ class RedisParserTestCase(unittest.TestCase):
         self.assert_(floateq(zset[b'8b6ba6718a786daefa69438148361901'], 1))
         self.assert_(floateq(zset[b'cb7a24bb7528f934b841b34c3a73e0c7'], 2.37))
         self.assert_(floateq(zset[b'523af537946b79c4f8369ed39ba78605'], 3.423))
+
+    def test_listpack_small_numbers(self):
+        r = load_rdb('listpack_small_numbers.rdb')
+        self.assertEquals(r.lengths[0][b"listpack_small_numbers"], 7)
+        self.assertEquals(r.databases[0][b"listpack_small_numbers"][b"unsigned_integer_1_bit"], 1)
+        self.assertEquals(r.databases[0][b"listpack_small_numbers"][b"unsigned_integer_2_bits"], 3)
+        self.assertEquals(r.databases[0][b"listpack_small_numbers"][b"unsigned_integer_3_bits"], 6)
+        self.assertEquals(r.databases[0][b"listpack_small_numbers"][b"unsigned_integer_4_bits"], 13)
+        self.assertEquals(r.databases[0][b"listpack_small_numbers"][b"unsigned_integer_5_bits"], 26)
+        self.assertEquals(r.databases[0][b"listpack_small_numbers"][b"unsigned_integer_6_bits"], 53)
+        self.assertEquals(r.databases[0][b"listpack_small_numbers"][b"unsigned_integer_7_bits"], 107)
+
+    def test_listpack_tiny_strings(self):
+        r = load_rdb('listpack_tiny_strings.rdb')
+        self.assertEquals(r.lengths[0][b"listpack_tiny_strings"], 4)
+        self.assertEquals(len(r.databases[0][b"listpack_tiny_strings"][b"char_0"]), 0)
+        self.assertEquals(len(r.databases[0][b"listpack_tiny_strings"][b"char_1"]), 1)
+        self.assertEquals(len(r.databases[0][b"listpack_tiny_strings"][b"char_50"]), 50)
+        self.assertEquals(len(r.databases[0][b"listpack_tiny_strings"][b"char_63"]), 63)
+
+    def test_listpack_multibyte_encodings_13_bit_signed_integer(self):
+        r = load_rdb('listpack_multibyte_encodings_13_bit_signed_integer.rdb')
+        self.assertEquals(r.lengths[0][b"listpack_multibyte_encodings_13_bit_signed_integer"], 4)
+        expected_numbers = [-1, -4097, 8191, 4097]
+        for num in expected_numbers :
+            self.assert_(num in r.databases[0][b"listpack_multibyte_encodings_13_bit_signed_integer"], "Cannot find %d" % num)
+
+    def test_listpack_multibyte_encodings_small_strings(self):
+        r = load_rdb('listpack_multibyte_encodings_small_strings.rdb')
+        self.assertEquals(r.lengths[0][b"listpack_multibyte_encodings_small_strings"], 3)
+        self.assertEquals(len(r.databases[0][b"listpack_multibyte_encodings_small_strings"][b"char_64"]), 64)
+        self.assertEquals(len(r.databases[0][b"listpack_multibyte_encodings_small_strings"][b"char_500"]), 500)
+        self.assertEquals(len(r.databases[0][b"listpack_multibyte_encodings_small_strings"][b"char_4095"]), 4095)
+
+    def test_listpack_multibyte_encodings_large_strings(self):
+        r = load_rdb('listpack_multibyte_encodings_large_strings.rdb')
+        self.assertEquals(r.lengths[0][b"listpack_multibyte_encodings_large_strings"], 3)
+        self.assertEquals(len(r.databases[0][b"listpack_multibyte_encodings_large_strings"][b"255bytes"]), 255)
+        self.assertEquals(len(r.databases[0][b"listpack_multibyte_encodings_large_strings"][b"65535bytes"]), 65535)
+        self.assertEquals(len(r.databases[0][b"listpack_multibyte_encodings_large_strings"][b"16777215bytes"]), 16777215)
+
+    def test_listpack_multibyte_encodings_integer(self):
+        r = load_rdb('listpack_multibyte_encodings_integer.rdb')
+        self.assertEquals(r.lengths[0][b"listpack_multibyte_encodings_integer"], 8)
+        expected_numbers = [-0x7ffe, 0x7ffe, -0x7ffeff, 0x7ffeff, -0x7ffefffe, 0x7ffefffe, -0x7ffefffefffefffe, 0x7ffefffefffefffe]
+        for num in expected_numbers :
+            self.assert_(num in r.databases[0][b"listpack_multibyte_encodings_integer"], "Cannot find %d" % num)
+
+    def test_set_as_listpack(self):
+        r = load_rdb('set_as_listpack.rdb')
+        self.assertEquals(r.lengths[0][b"set_as_listpack"], 6)
+        expected_numbers = [-3, 50, -70]
+        for member in (b"abc", b"abcdefg", b"abcdefghijklmn") :
+            self.assert_(member in r.databases[0][b"set_as_listpack"], msg=('%s missing' % member))
+        for num in expected_numbers :
+            self.assert_(num in r.databases[0][b"set_as_listpack"], "Cannot find %d" % num)
+
+    def test_streams(self):
+        r = load_rdb('streams.rdb')
+        self.assertEquals(r.lengths[0][b"streams"], 3)
 
     def test_filtering_by_keys(self):
         r = load_rdb('parser_filters.rdb', filters={"keys":"k[0-9]"})
