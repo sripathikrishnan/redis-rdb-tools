@@ -38,6 +38,8 @@ Example : %(prog)s --command json -k "user.*" /var/redis/6379/dump.rdb"""
                   help="Limit memory output to only the top N keys (by size)")
     parser.add_argument("-e", "--escape", dest="escape", choices=ESCAPE_CHOICES,
                   help="Escape strings to encoding: %s (default), %s, %s, or %s." % tuple(ESCAPE_CHOICES))
+    parser.add_argument("-s", "--key-slots", dest="key_slots", nargs=2, default=None,
+                  help="Range of key slots to export. This is a range (start and end).")
     expire_group = parser.add_mutually_exclusive_group(required=False)
     expire_group.add_argument("-x", "--no-expire", dest="no_expire", default=False, action='store_true',
                   help="With protocol command, remove expiry from all keys")
@@ -61,6 +63,9 @@ Example : %(prog)s --command json -k "user.*" /var/redis/6379/dump.rdb"""
         
     if options.not_keys:
         filters['not_keys'] = options.not_keys
+
+    if options.key_slots:
+        filters['key_slots'] = options.key_slots
     
     if options.types:
         filters['types'] = []

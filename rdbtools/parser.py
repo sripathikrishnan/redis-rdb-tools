@@ -6,6 +6,25 @@ import re
 from rdbtools.encodehelpers import STRING_ESCAPE_RAW, apply_escape_bytes, bval
 from .compat import range, str2regexp
 from .iowrapper import IOWrapper
+from binascii import crc_hqx
+from redis.typing import EncodedT
+
+# Redis Cluster's key space is divided into 16384 slots.
+# For more information see: https://github.com/redis/redis/issues/2576
+REDIS_CLUSTER_HASH_SLOTS = 16384
+
+def redis_key_slot(key: EncodedT, bucket: int = REDIS_CLUSTER_HASH_SLOTS) -> int:
+    """Calculate key slot for a given key.
+    See Keys distribution model in https://redis.io/topics/cluster-spec
+    :param key - bytes
+    :param bucket - int
+    """
+    start = key.find(b"{")
+    if start > -1:
+        end = key.find(b"}", start + 1)
+        if end > -1 and end != start + 1:
+            key = key[start + 1 : end]
+    return crc_hqx(key, 0) % bucket
 
 try:
     try:
@@ -987,6 +1006,12 @@ class RdbParser(object):
         else:
             self._filters['not_keys'] = str2regexp(filters['not_keys'])
 
+        if ('key_slots' in filters and filters['key_slots']):
+            def in_slot(key):
+                slot = redis_key_slot(key)
+                return slot >= int(filters['key_slots'][0]) and slot <= int(filters['key_slots'][1])
+            self._filters['key_slots'] = lambda key: in_slot(key)
+
         if 'types' in filters:
             if isinstance(filters['types'], bytes):
                 self._filters['types'] = (filters['types'], )
@@ -1010,6 +1035,9 @@ class RdbParser(object):
             return False
         if key and (not self._filters['keys'].match(key_to_match)):
             return False
+
+        if key and self._filters['key_slots']:
+            return self._filters['key_slots'](key_to_match)
 
         if data_type is not None and 'types' in self._filters and (not self.get_logical_type(data_type) in self._filters['types']):
             return False
