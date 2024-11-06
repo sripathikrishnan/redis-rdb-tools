@@ -12,7 +12,7 @@ except:
 from rdbtools.parser import RdbCallback
 from rdbtools.encodehelpers import bytes_to_unicode
 
-from heapq import heappush, nlargest, heappop
+from heapq import heappush, nlargest, heappop, heappushpop
 
 ZSKIPLIST_MAXLEVEL=32
 ZSKIPLIST_P=0.25
@@ -93,6 +93,7 @@ class PrintAllKeys(object):
         self._out.write(codecs.encode(headers, 'latin-1'))
 
         if self._largest is not None:
+            self._largest = int(self._largest)
             self._heap = []
     
     def next_record(self, record) :
@@ -106,7 +107,10 @@ class PrintAllKeys(object):
                     record.expiry.isoformat() if record.expiry else '')
                 self._out.write(codecs.encode(rec_str, 'latin-1'))
         else:
-            heappush(self._heap, (record.bytes, record))
+            if len(self._heap) >= self._largest:
+                heappushpop(self._heap, (record.bytes, record))
+            else:
+                heappush(self._heap, (record.bytes, record))
 
     def end_rdb(self):
         if self._largest is not None:
