@@ -65,27 +65,27 @@ class MemoryCallbackTestCase(unittest.TestCase):
 
     def test_csv_with_expiry(self):
         csv = get_csv('keys_with_expiry.rdb')
-        self.assertEquals(csv, CSV_WITH_EXPIRY)
+        self.assertEqual(csv, CSV_WITH_EXPIRY)
 
     def test_csv_without_expiry(self):
         csv = get_csv('ziplist_that_compresses_easily.rdb')
-        self.assertEquals(csv, CSV_WITHOUT_EXPIRY)
+        self.assertEqual(csv, CSV_WITHOUT_EXPIRY)
 
     def test_csv_with_module(self):
         csv = get_csv('redis_40_with_module.rdb')
-        self.assertEquals(csv, CSV_WITH_MODULE)
+        self.assertEqual(csv, CSV_WITH_MODULE)
 
     def test_expiry(self):
         stats = get_stats('keys_with_expiry.rdb')
 
         expiry = stats['expires_ms_precision'].expiry
-        self.assertEquals(expiry.year, 2022)
-        self.assertEquals(expiry.month, 12)
-        self.assertEquals(expiry.day, 25)
-        self.assertEquals(expiry.hour, 10)
-        self.assertEquals(expiry.minute, 11)
-        self.assertEquals(expiry.second, 12)
-        self.assertEquals(expiry.microsecond, 573000)        
+        self.assertEqual(expiry.year, 2022)
+        self.assertEqual(expiry.month, 12)
+        self.assertEqual(expiry.day, 25)
+        self.assertEqual(expiry.hour, 10)
+        self.assertEqual(expiry.minute, 11)
+        self.assertEqual(expiry.second, 12)
+        self.assertEqual(expiry.microsecond, 573000)
 
     def test_len_largest_element(self):
         stats = get_stats('ziplist_that_compresses_easily.rdb')
@@ -100,11 +100,11 @@ class MemoryCallbackTestCase(unittest.TestCase):
         expected_record = MemoryRecord(database=0, type='module', key='foo',
                                        bytes=101, encoding='ReJSON-RL', size=1,
                                        len_largest_element=101, expiry=None)
-        self.assertEquals(stats['foo'], expected_record)
+        self.assertEqual(stats['foo'], expected_record)
 
     def test_rdb_with_module_aux(self):
         sums = get_sums('redis_60_with_module_aux.rdb')
-        self.assertEquals(sums['module'], 32)
+        self.assertEqual(sums['module'], 32)
 
     def test_rdb_with_stream(self):
         stats = get_stats('redis_50_with_streams.rdb')
@@ -113,4 +113,4 @@ class MemoryCallbackTestCase(unittest.TestCase):
         expected_record = MemoryRecord(database=0, type='stream', key='mystream',
                                        bytes=1976, encoding='listpack', size=1,
                                        len_largest_element=184, expiry=None)
-        self.assertEquals(stats['mystream'], expected_record)
+        self.assertEqual(stats['mystream'], expected_record)

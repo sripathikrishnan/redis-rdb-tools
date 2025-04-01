@@ -26,7 +26,7 @@ class ProtocolExpireTestCase(unittest.TestCase):
         buf = BytesIO()
         parser = RdbParser(ProtocolCallback(buf))
         parser.parse(self.dumpfile)
-        self.assertEquals(buf.getvalue(), expected)
+        self.assertEqual(buf.getvalue(), expected)
         
 
     def test_amend_expiry(self):
@@ -40,7 +40,7 @@ class ProtocolExpireTestCase(unittest.TestCase):
         buf = BytesIO()
         parser = RdbParser(ProtocolCallback(buf, amend_expire=2000))
         parser.parse(self.dumpfile)
-        self.assertEquals(buf.getvalue(), expected)
+        self.assertEqual(buf.getvalue(), expected)
 
 
     def test_skip_expiry(self):
@@ -52,6 +52,6 @@ class ProtocolExpireTestCase(unittest.TestCase):
         buf = BytesIO()
         parser = RdbParser(ProtocolCallback(buf, emit_expire=False))
         parser.parse(self.dumpfile)
-        self.assertEquals(buf.getvalue(), expected)
+        self.assertEqual(buf.getvalue(), expected)
 
 
