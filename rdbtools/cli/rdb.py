@@ -4,6 +4,7 @@ import os
 import sys
 from argparse import ArgumentParser
 from rdbtools import RdbParser, JSONCallback, DiffCallback, MemoryCallback, ProtocolCallback, PrintAllKeys, KeysOnlyCallback, KeyValsOnlyCallback
+from rdbtools.callbacks import MetadataCallback
 from rdbtools.encodehelpers import ESCAPE_CHOICES
 from rdbtools.parser import HAS_PYTHON_LZF as PYTHON_LZF_INSTALLED
 
@@ -20,7 +21,7 @@ Example : %(prog)s --command json -k "user.*" /var/redis/6379/dump.rdb"""
 
     parser = ArgumentParser(prog='rdb', usage=usage)
     parser.add_argument("-c", "--command", dest="command", required=True,
-                  help="Command to execute. Valid commands are json, diff, justkeys, justkeyvals, memory and protocol", metavar="CMD")
+                  help="Command to execute. Valid commands are json, diff, justkeys, justkeyvals, memory, protocol and metadata", metavar="CMD")
     parser.add_argument("-f", "--file", dest="output",
                   help="Output file", metavar="FILE")
     parser.add_argument("-n", "--db", dest="dbs", action="append",
@@ -89,7 +90,8 @@ Example : %(prog)s --command json -k "user.*" /var/redis/6379/dump.rdb"""
                 'protocol': lambda f: ProtocolCallback(f, string_escape=options.escape,
                                                        emit_expire=not options.no_expire,
                                                        amend_expire=options.amend_expire
-                                                      )
+                                                      ),
+                'metadata': lambda f: MetadataCallback(f, string_escape=options.escape)
             }[options.command](out_file_obj)
         except:
             raise Exception('Invalid Command %s' % options.command)
