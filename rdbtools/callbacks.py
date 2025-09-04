@@ -474,3 +474,23 @@ class ProtocolCallback(RdbCallback):
 
     def expireat(self, key, timestamp):
         self.emit(b'EXPIREAT', key, timestamp)
+
+
+class MetadataCallback(RdbCallback):
+    def __init__(self, out, string_escape=None):
+        super(MetadataCallback, self).__init__(string_escape)
+        self._out = out
+        self._metadata = {}
+
+    def aux_field(self, key, value):
+        """Collect metadata fields like redis-ver, redis-bits, ctime, used-mem"""
+        if isinstance(key, bytes):
+            key = key.decode('utf-8', 'ignore')
+        if isinstance(value, bytes):
+            value = value.decode('utf-8', 'ignore')
+        self._metadata[key] = value
+
+    def end_rdb(self):
+        """Output collected metadata as JSON"""
+        json_output = json.dumps(self._metadata, indent=2)
+        self._out.write(json_output.encode('utf-8'))
