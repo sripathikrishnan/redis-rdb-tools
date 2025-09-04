@@ -1055,6 +1055,47 @@ class RdbParser(object):
                 raise Exception('lzf_decompress', 'Expected lengths do not match %d != %d for key %s' % (len(out_stream), expected_length, self._key))
             return bytes(out_stream)
 
+    def parse_metadata_only(self, filename):
+        """
+        Parse only metadata (AUX fields) from a redis rdb dump file.
+        This is much faster than full parsing for metadata extraction.
+        """
+        self.parse_metadata_only_fd(open(filename, "rb"))
+
+    def parse_metadata_only_fd(self, fd):
+        with fd as f:
+            self.verify_magic_string(f.read(5))
+            self.verify_version(f.read(4))
+            self._callback.start_rdb()
+
+            # Parse only until we encounter database content
+            while True:
+                data_type = read_unsigned_char(f)
+
+                if data_type == REDIS_RDB_OPCODE_AUX:
+                    aux_key = self.read_string(f)
+                    aux_val = self.read_string(f)
+                    ret = self._callback.aux_field(aux_key, aux_val)
+                    if ret:
+                        break  # Callback signals to stop
+                    continue
+
+                if data_type == REDIS_RDB_OPCODE_MODULE_AUX:
+                    self.read_module(f)
+                    continue
+
+                if data_type == REDIS_RDB_OPCODE_EOF:
+                    # Handle empty RDB files
+                    self._callback.end_rdb()
+                    if self._rdb_version >= 5:
+                        f.read(8)
+                    break
+
+                # Any other opcode means we've reached database content
+                # Stop parsing here for metadata-only extraction
+                self._callback.end_rdb()
+                break
+
 def skip(f, free):
     if free :
         f.read(free)

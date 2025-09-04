@@ -105,7 +105,11 @@ Example : %(prog)s --command json -k "user.*" /var/redis/6379/dump.rdb"""
             eprint("")
 
         parser = RdbParser(callback, filters=filters)
-        parser.parse(options.dump_file[0])
+        if options.command == 'metadata':
+            # Use optimized metadata-only parsing for better performance
+            parser.parse_metadata_only(options.dump_file[0])
+        else:
+            parser.parse(options.dump_file[0])
     finally:
         if options.output and out_file_obj is not None:
             out_file_obj.close()
