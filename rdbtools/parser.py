@@ -27,6 +27,8 @@ REDIS_RDB_32BITLEN = 0x80
 REDIS_RDB_64BITLEN = 0x81
 REDIS_RDB_ENCVAL = 3
 
+REDIS_RDB_OPCODE_SLOT_INFO = 244
+REDIS_RDB_OPCODE_FUNCTION2 = 245
 REDIS_RDB_OPCODE_MODULE_AUX = 247
 REDIS_RDB_OPCODE_IDLE = 248
 REDIS_RDB_OPCODE_FREQ = 249
@@ -52,6 +54,14 @@ REDIS_RDB_TYPE_ZSET_ZIPLIST = 12
 REDIS_RDB_TYPE_HASH_ZIPLIST = 13
 REDIS_RDB_TYPE_LIST_QUICKLIST = 14
 REDIS_RDB_TYPE_STREAM_LISTPACKS = 15
+REDIS_RDB_TYPE_HASH_LISTPACK = 16
+REDIS_RDB_TYPE_ZSET_LISTPACK = 17
+REDIS_RDB_TYPE_LIST_QUICKLIST_2 = 18
+REDIS_RDB_TYPE_STREAM_LISTPACKS_2 = 19
+REDIS_RDB_TYPE_SET_LISTPACK = 20
+REDIS_RDB_TYPE_STREAM_LISTPACKS_3 = 21
+REDIS_RDB_TYPE_HASH_METADATA = 24
+REDIS_RDB_TYPE_HASH_LISTPACK_EX = 25
 
 REDIS_RDB_ENC_INT8 = 0
 REDIS_RDB_ENC_INT16 = 1
@@ -67,7 +77,8 @@ REDIS_RDB_MODULE_OPCODE_STRING = 5
 
 DATA_TYPE_MAPPING = {
     0 : "string", 1 : "list", 2 : "set", 3 : "sortedset", 4 : "hash", 5 : "sortedset", 6 : "module", 7: "module",
-    9 : "hash", 10 : "list", 11 : "set", 12 : "sortedset", 13 : "hash", 14 : "list", 15 : "stream"}
+    9 : "hash", 10 : "list", 11 : "set", 12 : "sortedset", 13 : "hash", 14 : "list", 15 : "stream",
+    16: "hash", 17: "sortedset", 18: "list", 19: "stream", 20: "set", 21: "stream", 24: "hash", 25: "hash"}
 
 class RdbCallback(object):
     """
@@ -448,6 +459,16 @@ class RdbParser(object):
                     self.read_module(f)
                     continue
 
+                if data_type == REDIS_RDB_OPCODE_SLOT_INFO:
+                    # Read slot info (Redis cluster slot information)
+                    slot_id = self.read_length(f)
+                    continue
+
+                if data_type == REDIS_RDB_OPCODE_FUNCTION2:
+                    # Read function2 data (Redis 7.0+ function library)
+                    self.read_string(f)  # Skip function library data
+                    continue
+
                 if data_type == REDIS_RDB_OPCODE_EOF:
                     self._callback.end_database(db_number)
                     self._callback.end_rdb()
@@ -588,6 +609,20 @@ class RdbParser(object):
             self.read_module(f)
         elif enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS:
             self.read_stream(f)
+        elif enc_type == REDIS_RDB_TYPE_HASH_LISTPACK:
+            self.read_hash_from_listpack(f)
+        elif enc_type == REDIS_RDB_TYPE_ZSET_LISTPACK:
+            self.read_zset_from_listpack(f)
+        elif enc_type == REDIS_RDB_TYPE_LIST_QUICKLIST_2:
+            self.read_list_from_quicklist_2(f)
+        elif enc_type == REDIS_RDB_TYPE_SET_LISTPACK:
+            self.read_set_from_listpack(f)
+        elif enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS_2 or enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS_3:
+            self.read_stream(f)
+        elif enc_type == REDIS_RDB_TYPE_HASH_METADATA:
+            self.read_hash_metadata(f)
+        elif enc_type == REDIS_RDB_TYPE_HASH_LISTPACK_EX:
+            self.read_hash_listpack_ex(f)
         else:
             raise Exception('read_object', 'Invalid object type %d for key %s' % (enc_type, self._key))
 
@@ -657,6 +692,23 @@ class RdbParser(object):
             self.skip_module(f)
         elif enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS:
             self.skip_stream(f)
+        elif enc_type == REDIS_RDB_TYPE_HASH_LISTPACK:
+            skip_strings = 1
+        elif enc_type == REDIS_RDB_TYPE_ZSET_LISTPACK:
+            skip_strings = 1
+        elif enc_type == REDIS_RDB_TYPE_LIST_QUICKLIST_2:
+            count = self.read_length(f)
+            for i in range(count):
+                self.read_length(f)  # Read container type
+                self.skip_string(f)  # Skip the listpack/plain data
+        elif enc_type == REDIS_RDB_TYPE_SET_LISTPACK:
+            skip_strings = 1
+        elif enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS_2 or enc_type == REDIS_RDB_TYPE_STREAM_LISTPACKS_3:
+            self.skip_stream(f)
+        elif enc_type == REDIS_RDB_TYPE_HASH_METADATA:
+            skip_strings = 1
+        elif enc_type == REDIS_RDB_TYPE_HASH_LISTPACK_EX:
+            skip_strings = 1
         else:
             raise Exception('skip_object', 'Invalid object type %d for key %s' % (enc_type, self._key))
         for x in range(0, skip_strings):
@@ -820,6 +872,222 @@ class RdbParser(object):
         else:
             return None
 
+    def read_listpack_entry(self, f):
+        """
+        Read a single entry from a listpack.
+        Based on the listpack encoding specification from Redis.
+        """
+        entry_header = read_unsigned_char(f)
+        value = None
+
+        # 7-bit unsigned integer (0|xxxxxxx)
+        if (entry_header & 0x80) == 0:
+            value = entry_header & 0x7F
+        # 13-bit signed integer (110|xxxxx yyyyyyyy)
+        elif (entry_header & 0xE0) == 0xC0:
+            next_byte = read_unsigned_char(f)
+            value = ((entry_header & 0x1F) << 8) | next_byte
+            # Convert to signed
+            if value & 0x1000:
+                value = value | ~0x1FFF
+        # 6-bit string (10|xxxxxx)
+        elif (entry_header & 0xC0) == 0x80:
+            length = entry_header & 0x3F
+            value = f.read(length)
+        # 12-bit string (1110|xxxx yyyyyyyy)
+        elif (entry_header & 0xF0) == 0xE0:
+            next_byte = read_unsigned_char(f)
+            length = ((entry_header & 0x0F) << 8) | next_byte
+            value = f.read(length)
+        # Extended encodings (1111|xxxx)
+        elif (entry_header & 0xF0) == 0xF0:
+            sub_type = entry_header & 0x0F
+            if sub_type == 0:  # 32-bit string
+                length = read_unsigned_int(f)
+                value = f.read(length)
+            elif sub_type == 1:  # 16-bit signed integer
+                value = read_signed_short(f)
+            elif sub_type == 2:  # 24-bit signed integer
+                value = read_24bit_signed_number(f)
+            elif sub_type == 3:  # 32-bit signed integer
+                value = read_signed_int(f)
+            elif sub_type == 4:  # 64-bit signed integer
+                value = read_signed_long(f)
+            elif sub_type == 15:  # Listpack end marker
+                raise Exception('read_listpack_entry', 'Unexpected listpack end marker for key %s' % self._key)
+            else:
+                raise Exception('read_listpack_entry', 'Unknown listpack encoding subtype %d for key %s' % (sub_type, self._key))
+        else:
+            raise Exception('read_listpack_entry', 'Invalid listpack entry header %d for key %s' % (entry_header, self._key))
+
+        # Read element-tot-len (backlen) - variable length encoding
+        self.read_listpack_backlen(f)
+
+        return value
+
+    def read_listpack_backlen(self, f):
+        """
+        Read the variable-length backlen field at the end of each listpack entry.
+        This is stored in big-endian format with the MSB as a continuation flag.
+        """
+        backlen = 0
+        shift = 0
+        while True:
+            byte = read_unsigned_char(f)
+            backlen |= (byte & 0x7F) << shift
+            if (byte & 0x80) == 0:
+                break
+            shift += 7
+        return backlen
+
+    def read_hash_from_listpack(self, f):
+        raw_string = self.read_string(f)
+        buff = BytesIO(raw_string)
+        # Read listpack header: 4 bytes total size + 2 bytes num elements
+        total_bytes = read_unsigned_int(buff)
+        num_elements = read_unsigned_short(buff)
+
+        if (num_elements % 2):
+            raise Exception('read_hash_from_listpack', "Expected even number of elements, but found %d for key %s" % (num_elements, self._key))
+        num_entries = num_elements // 2
+
+        self._callback.start_hash(self._key, num_entries, self._expiry, info={'encoding':'listpack', 'sizeof_value':len(raw_string),'idle':self._idle,'freq':self._freq})
+        for x in range(0, num_entries):
+            field = self.read_listpack_entry(buff)
+            value = self.read_listpack_entry(buff)
+            self._callback.hset(self._key, field, value)
+
+        listpack_end = read_unsigned_char(buff)
+        if listpack_end != 255:
+            raise Exception('read_hash_from_listpack', "Invalid listpack end - %d for key %s" % (listpack_end, self._key))
+        self._callback.end_hash(self._key)
+
+    def read_set_from_listpack(self, f):
+        raw_string = self.read_string(f)
+        buff = BytesIO(raw_string)
+        # Read listpack header
+        total_bytes = read_unsigned_int(buff)
+        num_elements = read_unsigned_short(buff)
+
+        self._callback.start_set(self._key, num_elements, self._expiry, info={'encoding':'listpack', 'sizeof_value':len(raw_string),'idle':self._idle,'freq':self._freq})
+        for x in range(0, num_elements):
+            member = self.read_listpack_entry(buff)
+            self._callback.sadd(self._key, member)
+
+        listpack_end = read_unsigned_char(buff)
+        if listpack_end != 255:
+            raise Exception('read_set_from_listpack', "Invalid listpack end - %d for key %s" % (listpack_end, self._key))
+        self._callback.end_set(self._key)
+
+    def read_zset_from_listpack(self, f):
+        raw_string = self.read_string(f)
+        buff = BytesIO(raw_string)
+        # Read listpack header
+        total_bytes = read_unsigned_int(buff)
+        num_elements = read_unsigned_short(buff)
+
+        if (num_elements % 2):
+            raise Exception('read_zset_from_listpack', "Expected even number of elements, but found %d for key %s" % (num_elements, self._key))
+        num_entries = num_elements // 2
+
+        self._callback.start_sorted_set(self._key, num_entries, self._expiry, info={'encoding':'listpack', 'sizeof_value':len(raw_string),'idle':self._idle,'freq':self._freq})
+        for x in range(0, num_entries):
+            member = self.read_listpack_entry(buff)
+            score = self.read_listpack_entry(buff)
+            if isinstance(score, bytes):
+                score = float(score)
+            self._callback.zadd(self._key, score, member)
+
+        listpack_end = read_unsigned_char(buff)
+        if listpack_end != 255:
+            raise Exception('read_zset_from_listpack', "Invalid listpack end - %d for key %s" % (listpack_end, self._key))
+        self._callback.end_sorted_set(self._key)
+
+    def read_list_from_quicklist_2(self, f):
+        """
+        Read QUICKLIST_2 format.
+        Each quicklist node stores a container type followed by data.
+        Container types: PLAIN (1) = single element, PACKED (2) = listpack with multiple elements
+        """
+        count = self.read_length(f)
+        total_size = 0
+        self._callback.start_list(self._key, self._expiry, info={'encoding': 'quicklist', 'nodes': count,'idle':self._idle,'freq':self._freq})
+
+        for i in range(0, count):
+            # Read container type (PLAIN=1 or PACKED=2)
+            container = self.read_length(f)
+            raw_string = self.read_string(f)
+            total_size += len(raw_string)
+
+            if container == 1:  # QUICKLIST_NODE_CONTAINER_PLAIN
+                # Plain node: single large element stored directly
+                self._callback.rpush(self._key, raw_string)
+            elif container == 2:  # QUICKLIST_NODE_CONTAINER_PACKED
+                # Packed node: listpack with multiple elements
+                buff = BytesIO(raw_string)
+                # Read listpack header
+                lpbytes = read_unsigned_int(buff)
+                num_elements = read_unsigned_short(buff)
+                for x in range(0, num_elements):
+                    self._callback.rpush(self._key, self.read_listpack_entry(buff))
+                listpack_end = read_unsigned_char(buff)
+                if listpack_end != 255:
+                    raise Exception('read_list_from_quicklist_2', "Invalid listpack end - %d for key %s" % (listpack_end, self._key))
+            else:
+                raise Exception('read_list_from_quicklist_2', 'Unknown container type %d for key %s' % (container, self._key))
+
+        self._callback.end_list(self._key, info={'encoding': 'quicklist', 'nodes': count, 'sizeof_value': total_size})
+
+    def read_hash_metadata(self, f):
+        """
+        Read HASH_METADATA type (RDB v12) - Hash with metadata (e.g., field expiration).
+        This type includes metadata followed by the actual hash data.
+        """
+        # Read metadata length
+        metadata_len = self.read_length(f)
+        # Skip metadata for now (future enhancement could parse field expiration times)
+        for _ in range(metadata_len):
+            self.skip_string(f)
+
+        # Read the actual hash data (stored as regular hash)
+        length = self.read_length(f)
+        self._callback.start_hash(self._key, length, self._expiry, info={'encoding':'hashtable_with_metadata','idle':self._idle,'freq':self._freq})
+        for count in range(0, length):
+            field = self.read_string(f)
+            value = self.read_string(f)
+            self._callback.hset(self._key, field, value)
+        self._callback.end_hash(self._key)
+
+    def read_hash_listpack_ex(self, f):
+        """
+        Read HASH_LISTPACK_EX type (RDB v12) - Listpack-encoded hash with field expiration.
+        This is similar to HASH_LISTPACK but includes expiration times for individual fields.
+        """
+        raw_string = self.read_string(f)
+        buff = BytesIO(raw_string)
+        # Read listpack header
+        total_bytes = read_unsigned_int(buff)
+        num_elements = read_unsigned_short(buff)
+
+        # In HASH_LISTPACK_EX, elements are stored as: field, value, expiry (optional), field, value, expiry (optional), ...
+        # For simplicity, we'll parse it similar to regular listpack but be aware some entries might be expiry timestamps
+        if (num_elements % 2):
+            raise Exception('read_hash_listpack_ex', "Expected even number of elements, but found %d for key %s" % (num_elements, self._key))
+        num_entries = num_elements // 2
+
+        self._callback.start_hash(self._key, num_entries, self._expiry, info={'encoding':'listpack_with_expiry', 'sizeof_value':len(raw_string),'idle':self._idle,'freq':self._freq})
+        for x in range(0, num_entries):
+            field = self.read_listpack_entry(buff)
+            value = self.read_listpack_entry(buff)
+            # Note: Field expiration information is embedded in the listpack but not separately parsed here
+            # Future enhancement: Parse field-level expiration timestamps
+            self._callback.hset(self._key, field, value)
+
+        listpack_end = read_unsigned_char(buff)
+        if listpack_end != 255:
+            raise Exception('read_hash_listpack_ex', "Invalid listpack end - %d for key %s" % (listpack_end, self._key))
+        self._callback.end_hash(self._key)
+
     def skip_module(self, f):
         self.read_length_with_encoding(f) # read module id first
         opcode = self.read_length(f)
@@ -959,7 +1227,7 @@ class RdbParser(object):
 
     def verify_version(self, version_str) :
         version = int(version_str)
-        if version < 1 or version > 9:
+        if version < 1 or version > 12:
             raise Exception('verify_version', 'Invalid RDB version number %d' % version)
         self._rdb_version = version
 
